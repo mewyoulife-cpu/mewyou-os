@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  phone     String?
+  email     String?
+  line      String?
+  address   String?
+  taxId     String?
+  type      String   @default("normal")
+  notes     String?
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects   Project[]
+  quotations Quotation[]
+}
+
+model Project {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  type       String
+  status     String   @default("lead")
+  priority   String   @default("normal")
+  value      Float    @default(0)
+  cost       Float    @default(0)
+  startDate  String?
+  dueDate    String?
+  brief      String?
+  image      String?
+  assignee   String?
+  revisions  Int      @default(0)
+  deposit    Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Quotation {
+  id            String   @id @default(cuid())
+  no            String   @unique
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  status        String   @default("draft")
+  issueDate     String
+  expiry        String?
+  items         String   @default("[]")
+  discount      Float    @default(0)
+  vatEnabled    Boolean  @default(false)
+  paymentTerm   String   @default("deposit50")
+  bankIndex     Int      @default(0)
+  clientName    String?
+  clientAddress String?
+  clientTaxId   String?
+  clientContact String?
+  clientPhone   String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  documents Document[]
+}
+
+model Document {
+  id           String     @id @default(cuid())
+  no           String     @unique
+  type         String
+  status       String     @default("draft")
+  quotationId  String?
+  quotation    Quotation? @relation(fields: [quotationId], references: [id])
+  refInvoiceId String?
+  customerId   String?
+  clientName   String?
+  clientAddress String?
+  clientTaxId  String?
+  clientContact String?
+  clientPhone  String?
+  items        String     @default("[]")
+  discount     Float      @default(0)
+  vatEnabled   Boolean    @default(true)
+  bankIndex    Int?
+  payMethod    String?
+  payDate      String?
+  payRef       String?
+  slipUrl      String?
+  issueDate    String
+  dueDate      String?
+  delivery     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model CalendarNote {
+  id        String   @id @default(cuid())
+  date      String
+  text      String
+  priority  String   @default("normal")
+  createdAt DateTime @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Float
+  category    String
+  date        String
+  createdAt   DateTime @default(now())
+}
+
+model BankAccount {
+  id        String   @id @default(cuid())
+  bank      String
+  accountNo String
+  name      String
+  logo      String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Settings {
+  id          String @id @default("settings")
+  companyName String @default("mew.you")
+  address     String @default("")
+  taxId       String @default("")
+  vatRate     Float  @default(7)
+  phone       String @default("")
+  email       String @default("")
+  logo        String?
+}

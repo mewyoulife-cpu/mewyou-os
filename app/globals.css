@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #cdd6df; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+.material-symbols-rounded { font-feature-settings: 'liga'; -webkit-font-feature-settings: 'liga'; font-variant-ligatures: normal; line-height: 1; }
