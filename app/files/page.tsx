@@ -1,182 +1,182 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 const mockFiles = [
-  { id: '1', name: 'PERCARE_Packaging_v3.ai', size: '42 MB', type: 'ai', project: 'PJ-2024-001', customer: 'PERCARE', date: '10 มิ.ย. 2567', category: 'design' },
-  { id: '2', name: 'JELLYS_Logo_Final.pdf', size: '8.2 MB', type: 'pdf', project: 'PJ-2024-002', customer: 'JELLYS', date: '09 มิ.ย. 2567', category: 'final' },
-  { id: '3', name: 'GLOWME_Label_Draft.psd', size: '156 MB', type: 'psd', project: 'PJ-2024-003', customer: 'GLOWME', date: '08 มิ.ย. 2567', category: 'design' },
-  { id: '4', name: 'PERCARE_Brief.docx', size: '1.2 MB', type: 'doc', project: 'PJ-2024-001', customer: 'PERCARE', date: '01 มิ.ย. 2567', category: 'brief' },
-  { id: '5', name: 'LUXE_Mockup_v1.png', size: '22 MB', type: 'img', project: 'PJ-2024-005', customer: 'LUXE', date: '07 มิ.ย. 2567', category: 'mockup' },
-  { id: '6', name: 'NaturePlus_Box_Artwork.pdf', size: '18 MB', type: 'pdf', project: 'PJ-2024-004', customer: 'NATURE PLUS', date: '06 มิ.ย. 2567', category: 'final' },
-  { id: '7', name: 'QO-2569-0001.pdf', size: '0.8 MB', type: 'pdf', project: 'PJ-2024-001', customer: 'PERCARE', date: '04 มิ.ย. 2567', category: 'document' },
-  { id: '8', name: 'JELLYS_Branding_Guide.pdf', size: '32 MB', type: 'pdf', project: 'PJ-2024-002', customer: 'JELLYS', date: '05 มิ.ย. 2567', category: 'final' },
+  { name: 'LUXE_Label_v3.ai',         type: 'AI',  size: '8.2 MB',  project: 'PRJ-001', date: '20/05/68' },
+  { name: 'GLOWME_Package.psd',        type: 'PSD', size: '124 MB',  project: 'PRJ-003', date: '18/05/68' },
+  { name: 'PERCARE_Logo_Final.pdf',    type: 'PDF', size: '2.1 MB',  project: 'PRJ-007', date: '17/05/68' },
+  { name: 'JELLYS_Label_Artwork.ai',   type: 'AI',  size: '6.7 MB',  project: 'PRJ-008', date: '15/05/68' },
+  { name: 'NATURE_Box_v2.psd',         type: 'PSD', size: '89 MB',   project: 'PRJ-005', date: '14/05/68' },
+  { name: 'Brand_Guidelines.pdf',      type: 'PDF', size: '4.3 MB',  project: 'PRJ-001', date: '10/05/68' },
 ]
 
-const typeColors: Record<string, { bg: string; color: string; label: string }> = {
-  ai: { bg: '#fff3e0', color: '#e65100', label: 'AI' },
-  pdf: { bg: '#fce4ec', color: '#c62828', label: 'PDF' },
-  psd: { bg: '#e3f2fd', color: '#1565c0', label: 'PSD' },
-  doc: { bg: '#e8f5e9', color: '#2e7d32', label: 'DOC' },
-  img: { bg: '#f3e5f5', color: '#6a1b9a', label: 'IMG' },
+const typeConfig: Record<string, { bg: string; color: string; icon: string }> = {
+  AI:  { bg: '#fff0e6', color: '#f47a2a', icon: 'draw' },
+  PSD: { bg: '#e6f3ff', color: '#2da0fb', icon: 'photo_size_select_large' },
+  PDF: { bg: '#fde8e8', color: '#e54b4b', icon: 'picture_as_pdf' },
+  PNG: { bg: '#e8f5ee', color: '#3d8a64', icon: 'image' },
+  JPG: { bg: '#e8f5ee', color: '#3d8a64', icon: 'image' },
 }
 
-const categoryLabels: Record<string, string> = {
-  all: 'ทั้งหมด',
-  design: 'ไฟล์ออกแบบ',
-  final: 'ไฟล์สำเร็จ',
-  brief: 'บรีฟ',
-  mockup: 'ม็อคอัพ',
-  document: 'เอกสาร',
-}
+const PROJECT_CHIPS = ['ทั้งหมด', 'PRJ-001', 'PRJ-003', 'PRJ-005', 'PRJ-007', 'PRJ-008']
+const TYPE_FILTER_CHIPS = ['ประเภทไฟล์ทั้งหมด', 'AI', 'PSD', 'PDF', 'PNG/JPG']
 
 export default function FilesPage() {
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('all')
-  const [view, setView] = useState<'grid' | 'list'>('list')
+  const [activeProject, setActiveProject] = useState('ทั้งหมด')
+  const [activeType, setActiveType] = useState('ประเภทไฟล์ทั้งหมด')
 
   const filtered = mockFiles.filter(f => {
-    const matchSearch = f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.customer.toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'all' || f.category === category
-    return matchSearch && matchCat
+    const matchSearch = f.name.toLowerCase().includes(search.toLowerCase())
+    const matchProject = activeProject === 'ทั้งหมด' || f.project === activeProject
+    const matchType = activeType === 'ประเภทไฟล์ทั้งหมด'
+      || (activeType === 'PNG/JPG' ? (f.type === 'PNG' || f.type === 'JPG') : f.type === activeType)
+    return matchSearch && matchProject && matchType
   })
 
-  const totalSize = '280 MB'
-
   return (
-    <div style={{ padding: '32px', background: '#eef1f4', minHeight: '100vh' }}>
+    <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '16px 0 18px' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>ไฟล์งาน</h1>
-          <p style={{ color: '#7a8893', margin: '4px 0 0', fontSize: 14 }}>{mockFiles.length} ไฟล์ · {totalSize}</p>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>ไฟล์ทั้งหมด</div>
+          <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>ไฟล์ออกแบบ · Artwork · PDF · รูปภาพ</div>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 18 }}>upload</span>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          height: 42, padding: '0 18px', borderRadius: 11,
+          background: '#5f7d99', color: '#fff',
+          fontSize: 14, fontWeight: 600, cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(95,125,153,.3)',
+        }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 20 }}>upload</span>
           อัปโหลดไฟล์
-        </button>
+        </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: 'ไฟล์ออกแบบ', count: 2, icon: 'brush', color: '#e65100', bg: '#fff3e0' },
-          { label: 'ไฟล์สำเร็จ', count: 3, icon: 'check_circle', color: '#2e7d32', bg: '#e8f5e9' },
-          { label: 'ม็อคอัพ', count: 1, icon: 'image', color: '#6a1b9a', bg: '#f3e5f5' },
-          { label: 'เอกสาร', count: 2, icon: 'description', color: '#1565c0', bg: '#e3f2fd' },
-        ].map(s => (
-          <div key={s.label} style={{ flex: 1, background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 22, color: s.color }}>{s.icon}</span>
-            </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#2f3b45' }}>{s.count}</div>
-              <div style={{ fontSize: 12, color: '#7a8893' }}>{s.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 8, background: '#f7f9fb', borderRadius: 8, padding: '8px 14px' }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>search</span>
+      {/* Search + filter row */}
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '14px 16px', marginBottom: 16 }}>
+        {/* Search bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#f5f7fa', borderRadius: 10, padding: '9px 14px', marginBottom: 12 }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9aa7b2' }}>search</span>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="ค้นหาไฟล์..."
+            placeholder="ค้นหาชื่อไฟล์..."
             style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 14, color: '#2f3b45', width: '100%' }}
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          {Object.entries(categoryLabels).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setCategory(key)}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                background: category === key ? '#5f7d99' : '#f0f3f6',
-                color: category === key ? '#fff' : '#5f7d99',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Type chips */}
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 9 }}>
+          <div style={{ fontSize: 12, color: '#9aa7b2', fontWeight: 500, alignSelf: 'center', marginRight: 2 }}>ประเภทไฟล์</div>
+          {TYPE_FILTER_CHIPS.map(chip => {
+            const active = activeType === chip
+            return (
+              <div
+                key={chip}
+                onClick={() => setActiveType(chip)}
+                style={{
+                  padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: active ? 600 : 500,
+                  background: active ? '#5f7d99' : '#f0f3f6',
+                  color: active ? '#fff' : '#5b6b77',
+                  transition: 'all .15s',
+                }}
+              >
+                {chip}
+              </div>
+            )
+          })}
         </div>
 
-        <div style={{ display: 'flex', gap: 4, borderLeft: '1px solid #edf0f3', paddingLeft: 12 }}>
-          {(['list', 'grid'] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{ width: 34, height: 34, borderRadius: 7, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: view === v ? '#5f7d99' : 'transparent', color: view === v ? '#fff' : '#7a8893' }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: 18 }}>{v === 'list' ? 'view_list' : 'grid_view'}</span>
-            </button>
-          ))}
+        {/* Project chips */}
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 12, color: '#9aa7b2', fontWeight: 500, alignSelf: 'center', marginRight: 2 }}>โปรเจกต์</div>
+          {PROJECT_CHIPS.map(chip => {
+            const active = activeProject === chip
+            return (
+              <div
+                key={chip}
+                onClick={() => setActiveProject(chip)}
+                style={{
+                  padding: '5px 12px', borderRadius: 8, cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: active ? 600 : 500,
+                  background: active ? '#5f7d99' : '#f0f3f6',
+                  color: active ? '#fff' : '#5b6b77',
+                  transition: 'all .15s',
+                }}
+              >
+                {chip}
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* File list */}
-      {view === 'list' ? (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f7f9fb' }}>
-                {['ชื่อไฟล์', 'โปรเจกต์', 'ลูกค้า', 'ขนาด', 'วันที่', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#7a8893', borderBottom: '1px solid #edf0f3' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((file, i) => {
-                const tc = typeColors[file.type] || { bg: '#f0f3f6', color: '#5f7d99', label: file.type.toUpperCase() }
-                return (
-                  <tr key={file.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #edf0f3' : 'none' }}>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 8, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: tc.color }}>{tc.label}</div>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#2f3b45' }}>{file.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: '#5f7d99' }}>{file.project}</td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: '#7a8893' }}>{file.customer}</td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: '#7a8893' }}>{file.size}</td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: '#7a8893' }}>{file.date}</td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #edf0f3', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#7a8893' }}>download</span>
-                        </button>
-                        <button style={{ width: 30, height: 30, borderRadius: 6, border: '1px solid #edf0f3', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#7a8893' }}>more_vert</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 48, color: '#9aa7b2' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>folder_open</span>
-              ไม่พบไฟล์
-            </div>
-          )}
+      {/* File grid */}
+      {filtered.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 56, textAlign: 'center', color: '#9aa7b2' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 44, display: 'block', marginBottom: 10, color: '#d0d8e0' }}>folder_open</span>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#7a8893' }}>ไม่พบไฟล์</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {filtered.map(file => {
-            const tc = typeColors[file.type] || { bg: '#f0f3f6', color: '#5f7d99', label: file.type.toUpperCase() }
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
+          {filtered.map((file, idx) => {
+            const tc = typeConfig[file.type] || { bg: '#f0f3f6', color: '#5f7d99', icon: 'insert_drive_file' }
             return (
-              <div key={file.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: 16, cursor: 'pointer' }}>
-                <div style={{ width: 48, height: 48, borderRadius: 10, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: tc.color, marginBottom: 12 }}>{tc.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45', marginBottom: 4, wordBreak: 'break-all' }}>{file.name}</div>
-                <div style={{ fontSize: 11, color: '#9aa7b2' }}>{file.size} · {file.date}</div>
+              <div
+                key={idx}
+                style={{
+                  background: '#fff', borderRadius: 16, border: '1px solid #edf0f3',
+                  padding: '18px 16px', cursor: 'pointer', transition: 'all .15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = '#bcd0df'
+                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 18px rgba(40,60,80,.08)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = '#edf0f3'
+                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
+                }}
+              >
+                {/* File type icon badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 11,
+                    background: tc.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 24, color: tc.color }}>{tc.icon}</span>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, color: tc.color,
+                    background: tc.bg, borderRadius: 6, padding: '3px 8px',
+                    fontFamily: "'IBM Plex Sans', sans-serif",
+                  }}>
+                    {file.type}
+                  </span>
+                </div>
+
+                {/* File name */}
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45', marginBottom: 6, wordBreak: 'break-all', lineHeight: 1.4 }}>
+                  {file.name}
+                </div>
+
+                {/* Meta */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa7b2', marginBottom: 4 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 14 }}>data_usage</span>
+                  {file.size}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa7b2', marginBottom: 4 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 14 }}>folder</span>
+                  {file.project}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9aa7b2' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 14 }}>calendar_today</span>
+                  {file.date}
+                </div>
               </div>
             )
           })}

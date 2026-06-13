@@ -5,8 +5,8 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { key: 'dashboard', icon: 'home', label: 'Dashboard', href: '/' },
-  { key: 'leaks', icon: 'crisis_alert', label: 'จุดเงินรั่ว', href: '/leaks', badge: true },
+  { key: 'dashboard', icon: 'home', label: 'หน้าหลัก', href: '/' },
+  { key: 'leaks', icon: 'crisis_alert', label: 'จุดเงินรั่ว', href: '/leaks' },
   { key: 'projects', icon: 'folder_open', label: 'Projects', href: '/projects' },
   { key: 'customers', icon: 'group', label: 'Customers', href: '/customers' },
   { key: 'calendar', icon: 'calendar_month', label: 'Calendar', href: '/calendar' },
@@ -28,32 +28,28 @@ export default function Sidebar() {
   return (
     <aside style={{
       width: 248,
-      minWidth: 248,
-      height: '100vh',
+      flexShrink: 0,
       background: '#6c8298',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      padding: '22px 16px 16px',
     }}>
       {/* Logo */}
-      <div style={{ padding: '24px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 0 28px' }}>
         <Image
           src="/mewyou-logo-white.png"
-          alt="Mewyou"
-          width={120}
-          height={36}
-          style={{ objectFit: 'contain', objectPosition: 'left' }}
+          alt="mewyou"
+          width={150}
+          height={46}
+          style={{ objectFit: 'contain', display: 'block' }}
         />
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: '#cddae4', textTransform: 'uppercase', paddingLeft: 2 }}>
+        <div style={{ fontSize: 8.5, letterSpacing: 4, color: '#cddae4', fontWeight: 600 }}>
           DESIGN OS
-        </span>
+        </div>
       </div>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '0 16px 12px' }} />
-
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '4px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href)
           return (
@@ -64,8 +60,8 @@ export default function Sidebar() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
-                height: 42,
                 padding: '0 12px',
+                height: 40,
                 borderRadius: 10,
                 textDecoration: 'none',
                 background: active ? 'rgba(255,255,255,0.95)' : 'transparent',
@@ -73,7 +69,6 @@ export default function Sidebar() {
                 fontWeight: active ? 600 : 400,
                 fontSize: 14,
                 transition: 'background 0.15s, color 0.15s',
-                position: 'relative',
               }}
             >
               <span
@@ -84,59 +79,27 @@ export default function Sidebar() {
                   fontFeatureSettings: "'liga'",
                   lineHeight: 1,
                   flexShrink: 0,
+                  color: active ? '#5f7d99' : '#cddae4',
                 }}
               >
                 {item.icon}
               </span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.badge && (
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 18,
-                  height: 18,
-                  borderRadius: '50%',
-                  background: '#e05a4a',
-                  color: '#fff',
-                  fontSize: 10,
-                  fontWeight: 700,
-                }}>!</span>
-              )}
+              <span>{item.label}</span>
             </Link>
           )
         })}
       </nav>
 
       {/* User profile */}
-      <div style={{ padding: '12px 16px 20px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34,
-            height: 34,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <span
-              className="material-symbols-rounded"
-              style={{ fontSize: 18, color: '#cddae4', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}
-            >
-              person
-            </span>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              mew.you studio
-            </div>
-            <div style={{ fontSize: 11, color: '#afc3d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              mewyoulife@gmail.com
-            </div>
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 14, background: 'rgba(255,255,255,.12)', marginTop: 12 }}>
+        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#cdd9e3,#a9bccd)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#54697d', fontSize: 15 }}>
+          M
         </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mewyou Studio</div>
+          <div style={{ fontSize: 11.5, color: '#cddae4' }}>Owner · Admin</div>
+        </div>
+        <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#cddae4', cursor: 'pointer', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}>more_vert</span>
       </div>
     </aside>
   )

@@ -11,31 +11,29 @@ interface Customer {
   type: 'vip' | 'new' | 'normal'
   phone?: string
   email?: string
-  projects?: number
-  logo?: string
+  _count?: { projects: number }
 }
 
 const typeMap = {
-  vip: { label: 'VIP', bg: '#fdf3e3', color: '#f4a431' },
-  new: { label: 'ใหม่', bg: '#e9f3ed', color: '#3d8a64' },
-  normal: { label: 'ปกติ', bg: '#e8eef4', color: '#5f7d99' },
+  vip:    { label: 'VIP',     bg: '#fdf3e3', color: '#f4a431' },
+  new:    { label: 'ลูกค้าใหม่', bg: '#e9f3ed', color: '#3d8a64' },
+  normal: { label: 'ปกติ',   bg: '#e8eef4', color: '#5f7d99' },
 }
 
-const gradients = [
-  'linear-gradient(135deg, #5f7d99, #3d5a73)',
-  'linear-gradient(135deg, #3d8a64, #2a6347)',
-  'linear-gradient(135deg, #f4a431, #d4841a)',
-  'linear-gradient(135deg, #7c6fab, #5c4f8b)',
-  'linear-gradient(135deg, #c4593f, #a03a25)',
+const avatarGradients = [
+  'linear-gradient(135deg,#eef2f6,#dde6ee)',
+  'linear-gradient(135deg,#e9f3ed,#cde5d8)',
+  'linear-gradient(135deg,#fdf3e3,#fae2b8)',
+  'linear-gradient(135deg,#f0eef8,#dddaee)',
+  'linear-gradient(135deg,#fceee8,#f8d4c9)',
 ]
 
-function getInitials(name: string) {
-  return name.slice(0, 2).toUpperCase()
+function getGradient(name: string) {
+  return avatarGradients[name.charCodeAt(0) % avatarGradients.length]
 }
 
-function getGradient(name: string) {
-  const idx = name.charCodeAt(0) % gradients.length
-  return gradients[idx]
+function getInitial(name: string) {
+  return name.slice(0, 1).toUpperCase()
 }
 
 export default function CustomersPage() {
@@ -56,61 +54,37 @@ export default function CustomersPage() {
 
   const filtered = customers.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.company || '').toLowerCase().includes(search.toLowerCase())
+    (c.company || '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.phone || '').includes(search)
   )
 
   return (
-    <div>
+    <div style={{ color: '#2f3b45' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '16px 0 18px' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>ลูกค้าทั้งหมด</h1>
-          <p style={{ fontSize: 14, color: '#7a8893', margin: '4px 0 0' }}>
-            ลูกค้า {customers.length} ราย
-          </p>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>ลูกค้าทั้งหมด</div>
+          <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>
+            {loading ? 'กำลังโหลด...' : `${customers.length} ราย · VIP ${customers.filter(c => c.type === 'vip').length} ราย · ลูกค้าใหม่ ${customers.filter(c => c.type === 'new').length} ราย`}
+          </div>
         </div>
         <Link href="/customers/new" style={{ textDecoration: 'none' }}>
-          <button style={{
-            background: '#5f7d99',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 10,
-            padding: '10px 18px',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, height: 42, padding: '0 18px', borderRadius: 11, background: '#5f7d99', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>person_add</span>
             เพิ่มลูกค้า
-          </button>
+          </div>
         </Link>
       </div>
 
       {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 24 }}>
-        <span className="material-symbols-rounded" style={{
-          position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-          fontSize: 20, color: '#9aa7b2',
-        }}>search</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#ffffff', border: '1px solid #e4e8ec', borderRadius: 12, height: 44, padding: '0 16px', marginBottom: 18, maxWidth: 440 }}>
+        <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>search</span>
         <input
           type="text"
-          placeholder="ค้นหาลูกค้า..."
+          placeholder="ค้นหาชื่อลูกค้า, บริษัท, เบอร์โทร..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '11px 14px 11px 42px',
-            border: '1px solid #edf0f3',
-            borderRadius: 12,
-            fontSize: 14,
-            color: '#2f3b45',
-            background: '#fff',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
+          style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontFamily: 'inherit', fontSize: 14, color: '#2f3b45' }}
         />
       </div>
 
@@ -126,105 +100,57 @@ export default function CustomersPage() {
           ไม่พบลูกค้า
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 16,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
           {filtered.map(customer => {
             const type = typeMap[customer.type] || typeMap.normal
+            const projectCount = customer._count?.projects ?? 0
             return (
               <div
                 key={customer.id}
                 onClick={() => router.push(`/customers/${customer.id}`)}
-                style={{
-                  background: '#fff',
-                  borderRadius: 18,
-                  border: '1px solid #edf0f3',
-                  padding: 20,
-                  cursor: 'pointer',
-                  transition: 'box-shadow 0.15s, transform 0.15s',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)'
-                  ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'
-                  ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'
-                }}
+                style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #edf0f3', padding: 18, cursor: 'pointer', transition: 'box-shadow .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 22px rgba(40,60,80,.10)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
               >
-                {/* Top row: avatar + name + badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: '50%',
-                    background: getGradient(customer.name),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 700, fontSize: 15, flexShrink: 0,
-                  }}>
-                    {getInitials(customer.name)}
+                {/* Avatar + name + badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#54697d', fontSize: 17, background: getGradient(customer.name), fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                    {getInitial(customer.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: '#2f3b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {customer.name}
-                      </span>
-                      <span style={{
-                        background: type.bg, color: type.color,
-                        borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {type.label}
-                      </span>
+                    <div style={{ fontSize: 15.5, fontWeight: 700, color: '#2f3b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {customer.name}
                     </div>
-                    {customer.company && (
-                      <div style={{ fontSize: 12, color: '#7a8893', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {customer.company}
-                      </div>
-                    )}
+                    <div style={{ fontSize: 12.5, color: '#9aa7b2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {customer.company || '—'}
+                    </div>
                   </div>
+                  <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: type.bg, color: type.color, flexShrink: 0 }}>
+                    {type.label}
+                  </span>
                 </div>
 
                 {/* Logo placeholder */}
-                <div style={{
-                  height: 54,
-                  border: '1.5px dashed #d0d8e0',
-                  borderRadius: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#9aa7b2',
-                  fontSize: 12,
-                  marginBottom: 12,
-                  background: '#f9fafb',
-                }}>
-                  {customer.logo ? (
-                    <img src={customer.logo} alt="logo" style={{ maxHeight: 44, maxWidth: '100%', objectFit: 'contain' }} />
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#b0bdc8' }}>image</span>
-                      <span style={{ color: '#b0bdc8' }}>โลโก้</span>
-                    </div>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 13, height: 40, border: '1.5px dashed #d4dce2', borderRadius: 10, cursor: 'pointer', background: '#fafbfc' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#bcc7d1' }}>add_photo_alternate</span>
+                  <span style={{ fontSize: 12, color: '#9aa7b2' }}>เพิ่มโลโก้แบรนด์</span>
                 </div>
 
-                {/* Contact info */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {customer.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#7a8893' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>call</span>
-                      {customer.phone}
-                    </div>
-                  )}
-                  {customer.email && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#7a8893' }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>mail</span>
-                      {customer.email}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#7a8893' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>folder</span>
-                    {customer.projects ?? 0} โปรเจกต์
+                {/* Phone */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#7a8893', marginTop: 14 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#a9b6c0' }}>call</span>
+                  {customer.phone || '—'}
+                </div>
+
+                {/* Stats row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTop: '1px solid #f2f4f6' }}>
+                  <div>
+                    <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>โปรเจกต์</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#3b4954', fontFamily: "'IBM Plex Sans', sans-serif" }}>{projectCount}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>ยอดซื้อรวม</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿0</div>
                   </div>
                 </div>
               </div>

@@ -4,20 +4,12 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import DashboardCharts from './DashboardCharts'
 
-function fmt(n: number) {
-  return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
-function fmtShort(n: number) {
-  return '฿' + n.toLocaleString('th-TH')
-}
-
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc' },
   brief:     { label: 'Brief',     bg: '#e8f1f9', color: '#6b96c2' },
   quotation: { label: 'Quotation', bg: '#f0eaf9', color: '#9575cd' },
   payment:   { label: 'Payment',   bg: '#fdf3e3', color: '#f4a431' },
-  design:    { label: 'ออกแบบ',    bg: '#e8eef4', color: '#5f7d99' },
+  design:    { label: 'ออกแบบ',   bg: '#e8eef4', color: '#5f7d99' },
   revision:  { label: 'Revision',  bg: '#fceee8', color: '#e07b54' },
   approved:  { label: 'รออนุมัติ', bg: '#e9f3ed', color: '#3d8a64' },
   deliver:   { label: 'รอส่งมอบ', bg: '#e3f2fd', color: '#2196f3' },
@@ -29,17 +21,21 @@ const STATUS_PROGRESS: Record<string, number> = {
   design: 55, revision: 70, approved: 82, deliver: 92, completed: 100,
 }
 
+function fmtShort(n: number) {
+  return '฿' + n.toLocaleString('th-TH')
+}
+
+function fmt(n: number) {
+  return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 function getThaiBuddhistDate(date: Date): string {
-  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
   const months = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
   ]
-  const dayName = days[date.getDay()]
-  const day = date.getDate()
-  const month = months[date.getMonth()]
-  const year = date.getFullYear() + 543
-  return `วัน${dayName}ที่ ${day} ${month} ${year}`
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+  return `วัน${days[date.getDay()]}ที่ ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`
 }
 
 function getWeekDays(today: Date) {
@@ -55,14 +51,33 @@ function getWeekDays(today: Date) {
   })
 }
 
+function calcDocTotal(items: string, discount: number, vatEnabled: boolean) {
+  try {
+    const parsed = JSON.parse(items) as Array<{ qty: number; unitPrice: number }>
+    const subtotal = parsed.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0)
+    const afterDiscount = subtotal - discount
+    return vatEnabled ? afterDiscount * 1.07 : afterDiscount
+  } catch {
+    return 0
+  }
+}
+
 export default async function DashboardPage() {
   const today = new Date()
+  const todayStr = getThaiBuddhistDate(today)
+  const weekDays = getWeekDays(today)
+
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
   const [
     projectCount,
     projects,
     inProgressCount,
     deliverCount,
+    statusGroups,
+    pendingDocs,
+    allPendingDocs,
+    monthlySalesProjects,
   ] = await Promise.all([
     prisma.project.count(),
     prisma.project.findMany({
@@ -70,58 +85,33 @@ export default async function DashboardPage() {
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
-    prisma.project.count({
-      where: { status: { notIn: ['completed', 'lead', 'deliver'] } },
+    prisma.project.count({ where: { status: { notIn: ['completed', 'lead', 'deliver'] } } }),
+    prisma.project.count({ where: { status: 'deliver' } }),
+    prisma.project.groupBy({ by: ['status'], _count: true }),
+    prisma.document.findMany({
+      where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
     }),
-    prisma.project.count({
-      where: { status: 'deliver' },
+    prisma.document.findMany({
+      where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
+      select: { items: true, discount: true, vatEnabled: true },
+    }),
+    prisma.project.findMany({
+      where: {
+        status: { in: ['payment', 'design', 'revision', 'approved', 'deliver', 'completed'] },
+        createdAt: { gte: startOfMonth },
+      },
+      select: { value: true },
     }),
   ])
 
-  // Monthly sales sum (current month)
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const allProjectsThisMonth = await prisma.project.findMany({
-    where: {
-      status: { in: ['payment', 'design', 'revision', 'approved', 'deliver', 'completed'] },
-      createdAt: { gte: new Date(startOfMonth) },
-    },
-    select: { value: true, deposit: true },
-  })
-  const monthlySales = allProjectsThisMonth.reduce((s, p) => s + p.value, 0)
-
-  // Pending invoices (documents with status draft/pending)
-  const pendingDocs = await prisma.document.findMany({
-    where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
-    orderBy: { createdAt: 'desc' },
-    take: 3,
-    select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
-  })
-
-  // Outstanding (overdue) — sum of pending documents
-  const allPendingDocs = await prisma.document.findMany({
-    where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
-    select: { items: true, discount: true, vatEnabled: true },
-  })
-
-  function calcTotal(items: string, discount: number, vatEnabled: boolean) {
-    try {
-      const parsed = JSON.parse(items) as Array<{ qty: number; unitPrice: number }>
-      const subtotal = parsed.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0)
-      const afterDiscount = subtotal - discount
-      return vatEnabled ? afterDiscount * 1.07 : afterDiscount
-    } catch {
-      return 0
-    }
-  }
-
+  const monthlySales = monthlySalesProjects.reduce((s, p) => s + p.value, 0)
   const outstandingTotal = allPendingDocs.reduce(
-    (s, d) => s + calcTotal(d.items, d.discount, d.vatEnabled),
-    0,
+    (s, d) => s + calcDocTotal(d.items, d.discount, d.vatEnabled), 0
   )
 
-  // Donut chart data from real project statuses
-  const statusGroups = await prisma.project.groupBy({ by: ['status'], _count: true })
   const donutData = [
     { label: 'ออกแบบ',   value: statusGroups.find(g => g.status === 'design')?.['_count'] ?? 0,    color: '#2f3b45' },
     { label: 'ผลิต',     value: statusGroups.find(g => g.status === 'revision')?.['_count'] ?? 0,  color: '#5f7d99' },
@@ -130,356 +120,305 @@ export default async function DashboardPage() {
     { label: 'เสร็จสิ้น', value: statusGroups.find(g => g.status === 'completed')?.['_count'] ?? 0, color: '#c4a882' },
   ]
 
-  const todayStr = getThaiBuddhistDate(today)
-  const weekDays = getWeekDays(today)
+  const salesData = [65000, 78000, 72000, 85000, 92000, monthlySales || 455000]
+  const salesMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
+
+  const kpis = [
+    { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', trend: '+12%', trendIcon: 'trending_up', up: true },
+    { icon: 'pending_actions', label: 'กำลังดำเนินการ', value: String(inProgressCount), unit: 'โปรเจกต์', trend: '+8%', trendIcon: 'trending_up', up: true },
+    { icon: 'local_shipping', label: 'รอส่งมอบ', value: String(deliverCount), unit: 'โปรเจกต์', trend: '-3%', trendIcon: 'trending_down', up: false },
+    { icon: 'payments', label: 'ยอดขาย (เดือนนี้)', value: monthlySales > 0 ? fmtShort(monthlySales) : '฿0', unit: '', trend: '+15%', trendIcon: 'trending_up', up: true },
+    { icon: 'receipt', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '', trend: '-5%', trendIcon: 'trending_down', up: false },
+  ]
+
+  const PRIORITY_TASKS = [
+    { label: 'ใบเสนอราคาค้างตอบ', count: '3 ใบ', countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'มัดจำที่ยังไม่ได้เก็บ', count: '5 งาน', countColor: '#a9762f', countBg: '#fdf3e3' },
+    { label: 'งานเลยกำหนดส่ง', count: '2 งาน', countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'Revision ค้างอยู่', count: '4 งาน', countColor: '#5f7d99', countBg: '#e8eef4' },
+    { label: 'ใบกำกับฯ รอส่งลูกค้า', count: '3 ใบ', countColor: '#6760a8', countBg: '#ecebf8' },
+  ]
+
+  const ACTIVITIES = [
+    { icon: 'add_task', iconBg: '#e9f3ed', iconColor: '#3d8a64', title: 'สร้างโปรเจกต์ GLOWME Body Serum', meta: '10 นาทีที่แล้ว' },
+    { icon: 'send', iconBg: '#ecebf8', iconColor: '#6760a8', title: 'ส่งใบเสนอราคา QT-2025-008 ให้ LUXE', meta: '1 ชั่วโมงที่แล้ว' },
+    { icon: 'payments', iconBg: '#fdf3e3', iconColor: '#f4a431', title: 'ได้รับมัดจำ ฿25,000 จาก PERCARE', meta: '3 ชั่วโมงที่แล้ว' },
+    { icon: 'check_circle', iconBg: '#e8f5e9', iconColor: '#4caf50', title: 'อนุมัติงาน JELLYS Collagen Label', meta: 'เมื่อวาน' },
+  ]
+
+  const SCHEDULE = [
+    { time: '09:00', title: 'Brief NATURE PLUS', sub: 'ห้องประชุม A · คุณแนน' },
+    { time: '13:00', title: 'Revision JELLYS รอบ 2', sub: 'Online · Zoom' },
+    { time: '15:30', title: 'ส่งงาน GLOWME', sub: 'ส่งไฟล์ Artwork' },
+  ]
 
   const card: React.CSSProperties = {
     background: '#fff',
-    borderRadius: 16,
+    borderRadius: 18,
     border: '1px solid #edf0f3',
-    padding: '20px 22px',
   }
-
-  const statCards = [
-    {
-      icon: 'folder',
-      label: 'โปรเจกต์ทั้งหมด',
-      value: String(projectCount),
-      trend: '↑ 12% จากเดือนที่แล้ว',
-      trendUp: true,
-    },
-    {
-      icon: 'timer',
-      label: 'กำลังดำเนินการ',
-      value: String(inProgressCount),
-      trend: '↑ 8% จากเดือนที่แล้ว',
-      trendUp: true,
-    },
-    {
-      icon: 'check_circle',
-      label: 'รอส่งมอบ',
-      value: String(deliverCount),
-      trend: '↓ 3% จากเดือนที่แล้ว',
-      trendUp: false,
-    },
-    {
-      icon: 'payments',
-      label: 'ยอดขายรวม (เดือนนี้)',
-      value: monthlySales > 0 ? fmtShort(monthlySales) : '฿0',
-      trend: '↑ 15% จากเดือนที่แล้ว',
-      trendUp: true,
-    },
-    {
-      icon: 'credit_card',
-      label: 'ยอดค้างชำระ',
-      value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0',
-      trend: '↓ 5% จากเดือนที่แล้ว',
-      trendUp: false,
-    },
-  ]
-
-  const salesData = [65000, 78000, 72000, 85000, 92000, 455000]
-  const salesMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
-
-  const SCHEDULE = [
-    { time: '09:00', text: 'Brief NATURE PLUS', color: '#5f7d99' },
-    { time: '13:00', text: 'Revision JELLYS รอบ 2', color: '#e07b54' },
-    { time: '15:30', text: 'ส่งงาน GLOWME', color: '#3d8a64' },
-  ]
 
   return (
     <div style={{ color: '#2f3b45' }}>
-      {/* TOP HEADER BAR */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <span
-            className="material-symbols-rounded"
-            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: '#b0bdc8', pointerEvents: 'none' }}
-          >
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="ค้นหาโปรเจกต์, ลูกค้า, เลขที่เอกสาร..."
-            style={{
-              width: '100%',
-              padding: '10px 14px 10px 40px',
-              borderRadius: 10,
-              border: '1px solid #edf0f3',
-              background: '#fff',
-              fontSize: 13,
-              color: '#2f3b45',
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-        {/* Notification Bell */}
-        <div style={{ position: 'relative', cursor: 'pointer' }}>
-          <div style={{
-            width: 40, height: 40,
-            borderRadius: 10,
-            border: '1px solid #edf0f3',
-            background: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#7a8893' }}>notifications</span>
-          </div>
-          <div style={{
-            position: 'absolute', top: -4, right: -4,
-            background: '#f4831f',
-            color: '#fff',
-            borderRadius: 99,
-            fontSize: 10,
-            fontWeight: 700,
-            minWidth: 17,
-            height: 17,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '0 4px',
-          }}>
-            5
-          </div>
-        </div>
-        {/* Create Button */}
-        <button style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: '#2f3b45',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 10,
-          padding: '10px 16px',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-        }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 16 }}>add</span>
-          สร้างใหม่
-        </button>
-      </div>
-
-      {/* GREETING SECTION */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: '#2f3b45', margin: 0, lineHeight: 1.2 }}>
-          สวัสดี, Mew 👋
-        </h1>
-        <div style={{ fontSize: 14, color: '#7a8893', marginTop: 6 }}>
+      {/* Greeting */}
+      <div style={{ margin: '14px 0 22px' }}>
+        <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45' }}>สวัสดี, Mew 👋</div>
+        <div style={{ fontSize: 14.5, color: '#7a8893', marginTop: 3 }}>
           ยินดีต้อนรับเข้าสู่ระบบ Mewyou Design OS · {todayStr}
         </div>
       </div>
 
-      {/* 5 STAT CARDS */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {statCards.map((k) => (
-          <div key={k.label} style={{
-            flex: '1 1 0',
-            minWidth: 160,
-            background: '#fff',
-            borderRadius: 16,
-            border: '1px solid #edf0f3',
-            padding: '18px 20px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 12, fontWeight: 500, marginBottom: 12 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>{k.icon}</span>
+      {/* KPI Cards */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
+        {kpis.map((k) => (
+          <div key={k.label} style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9fb0bf' }}>{k.icon}</span>
               {k.label}
             </div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: '#2f3b45', lineHeight: 1 }}>{k.value}</div>
-            <div style={{ fontSize: 12, color: k.trendUp ? '#3d8a64' : '#e05a4a', marginTop: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ fontSize: 29, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{k.value}</span>
+              {k.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{k.unit}</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: k.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{k.trendIcon}</span>
               {k.trend}
+              <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากเดือนที่แล้ว</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* MAIN CONTENT: 3-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '35% 35% 30%', gap: 16, marginBottom: 24 }}>
+      {/* Main 2-col layout */}
+      <div style={{ display: 'flex', gap: 18 }}>
 
-        {/* LEFT: Donut Chart */}
-        <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45', marginBottom: 18 }}>ภาพรวมโปรเจกต์</div>
-          <DashboardCharts
-            donutData={donutData}
-            salesData={salesData}
-            salesMonths={salesMonths}
-            mode="donut"
-          />
-        </div>
+        {/* LEFT column */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* MIDDLE: Line Chart */}
-        <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>ยอดขาย (6 เดือนล่าสุด)</div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 12, color: '#7a8893', cursor: 'pointer',
-              border: '1px solid #edf0f3', borderRadius: 6, padding: '3px 8px',
-            }}>
-              บาท <span className="material-symbols-rounded" style={{ fontSize: 14 }}>arrow_drop_down</span>
+          {/* Charts row */}
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            {/* Donut */}
+            <div style={{ ...card, flex: '1 1 260px', padding: 22 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', marginBottom: 6 }}>ภาพรวมโปรเจกต์</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+                <DashboardCharts donutData={donutData} salesData={salesData} salesMonths={salesMonths} mode="donut" />
+              </div>
             </div>
-          </div>
-          <DashboardCharts
-            donutData={donutData}
-            salesData={salesData}
-            salesMonths={salesMonths}
-            mode="line"
-          />
-        </div>
-
-        {/* RIGHT PANEL */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* ใบกำกับภาษีรอส่ง */}
-          <div style={{ ...card, padding: '18px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>ใบกำกับภาษีรอส่ง</div>
-              <Link href="/documents" style={{ fontSize: 12, color: '#5f7d99', textDecoration: 'none' }}>ดูทั้งหมด</Link>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {pendingDocs.length > 0 ? pendingDocs.map((doc) => {
-                const total = calcTotal(doc.items, doc.discount, doc.vatEnabled)
-                return (
-                  <div key={doc.no} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    borderLeft: '3px solid #6c63ff',
-                    background: '#fafaff',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#2f3b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {doc.clientName || '-'}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#7a8893' }}>{doc.no} · {doc.issueDate}</div>
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#2f3b45', whiteSpace: 'nowrap' }}>
-                      {fmtShort(Math.round(total))}
-                    </div>
-                  </div>
-                )
-              }) : (
-                [
-                  { name: 'LUXE CO., LTD.', no: 'TAX-2025-001', date: '20/05/68', amount: 53500 },
-                  { name: 'GLOWME',         no: 'TAX-2025-002', date: '19/05/68', amount: 47500 },
-                  { name: 'PERCARE',        no: 'TAX-2025-003', date: '18/05/68', amount: 32100 },
-                ].map((inv) => (
-                  <div key={inv.no} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    borderLeft: '3px solid #6c63ff',
-                    background: '#fafaff',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#2f3b45' }}>{inv.name}</div>
-                      <div style={{ fontSize: 11, color: '#7a8893' }}>{inv.no} · {inv.date}</div>
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#2f3b45', whiteSpace: 'nowrap' }}>
-                      {fmtShort(inv.amount)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* ปฏิทินงานวันนี้ */}
-          <div style={{ ...card, padding: '18px 20px' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ปฏิทินงานวันนี้</div>
-            {/* Week days */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              {weekDays.map((d, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ fontSize: 10, color: '#7a8893' }}>{d.label}</div>
-                  <div style={{
-                    width: 26, height: 26,
-                    borderRadius: '50%',
-                    background: d.isToday ? '#2f3b45' : 'transparent',
-                    color: d.isToday ? '#fff' : '#2f3b45',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12,
-                    fontWeight: d.isToday ? 700 : 400,
-                  }}>
-                    {d.date}
-                  </div>
+            {/* Line chart */}
+            <div style={{ ...card, flex: '1 1 320px', padding: 22 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>
+                  ยอดขาย <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>(6 เดือนล่าสุด)</span>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#5b6b77', border: '1px solid #e4e8ec', borderRadius: 9, padding: '5px 10px' }}>
+                  บาท
+                  <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>expand_more</span>
+                </div>
+              </div>
+              <DashboardCharts donutData={donutData} salesData={salesData} salesMonths={salesMonths} mode="line" />
+            </div>
+          </div>
+
+          {/* Recent Projects Table */}
+          <div style={{ ...card, padding: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด</div>
+              <Link href="/projects" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13.5, color: '#4f7bb0', fontWeight: 500, textDecoration: 'none' }}>
+                ดูทั้งหมด
+                <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
+              </Link>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 11px', borderBottom: '1px solid #f0f2f5' }}>
+              {['รหัสโปรเจกต์', 'ชื่อลูกค้า', 'ประเภท', 'สถานะ', 'ความคืบหน้า', 'กำหนดส่ง', 'มูลค่า'].map(h => (
+                <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h}</div>
               ))}
             </div>
-            {/* Schedule items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {SCHEDULE.map((ev, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, marginTop: 5, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 11, color: '#7a8893' }}>{ev.time}</div>
-                    <div style={{ fontSize: 12, color: '#2f3b45', fontWeight: 500 }}>{ev.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* BOTTOM: Recent Projects Table */}
-      <div style={{ ...card, marginBottom: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด</div>
-          <Link href="/projects" style={{ fontSize: 13, color: '#5f7d99', textDecoration: 'none', fontWeight: 500 }}>ดูทั้งหมด &gt;</Link>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #edf0f3' }}>
-                {['รหัสโปรเจกต์', 'ชื่อลูกค้า', 'ประเภท', 'สถานะ', 'ความคืบหน้า', 'กำหนดส่ง', 'มูลค่า'].map((h) => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#7a8893', fontWeight: 500, whiteSpace: 'nowrap', fontSize: 12 }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {projects.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#7a8893' }}>
-                    ยังไม่มีโปรเจกต์
-                  </td>
-                </tr>
-              ) : projects.map((p) => {
-                const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
-                const pct = STATUS_PROGRESS[p.status] || 0
-                return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f4f6f8' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: '#5f7d99' }}>
-                      <Link href={`/projects/${p.id}`} style={{ textDecoration: 'none', color: '#5f7d99' }}>{p.code}</Link>
-                    </td>
-                    <td style={{ padding: '10px 12px', color: '#2f3b45' }}>{p.customer?.name || '-'}</td>
-                    <td style={{ padding: '10px 12px', color: '#7a8893' }}>{p.type}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center',
-                        height: 24, padding: '0 10px',
-                        borderRadius: 8, fontSize: 11, fontWeight: 600,
-                        background: s.bg, color: s.color,
-                      }}>
+            {projects.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#9aa7b2', fontSize: 13.5 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 36, display: 'block', marginBottom: 8, color: '#cdd6df' }}>folder_open</span>
+                ยังไม่มีโปรเจกต์
+              </div>
+            ) : projects.map(p => {
+              const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
+              const pct = STATUS_PROGRESS[p.status] || 0
+              return (
+                <Link href={`/projects/${p.id}`} key={p.id} style={{ textDecoration: 'none' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '13px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}>
+                    <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{p.code}</div>
+                    <div style={{ fontWeight: 600, color: '#2f3b45' }}>{p.customer?.name || '-'}</div>
+                    <div style={{ color: '#7a8893', fontSize: 13 }}>{p.type}</div>
+                    <div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: s.bg, color: s.color }}>
                         {s.label}
                       </span>
-                    </td>
-                    <td style={{ padding: '10px 12px', minWidth: 110 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: '#edf0f3', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: '#5f7d99', borderRadius: 3 }} />
-                        </div>
-                        <span style={{ fontSize: 11, color: '#7a8893', width: 30 }}>{pct}%</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 6, borderRadius: 4, background: '#eef1f4', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: '#5f7d99', borderRadius: 4 }} />
                       </div>
-                    </td>
-                    <td style={{ padding: '10px 12px', color: '#7a8893', whiteSpace: 'nowrap' }}>{p.dueDate || '-'}</td>
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: '#2f3b45', whiteSpace: 'nowrap' }}>{fmt(p.value)}</td>
-                  </tr>
+                      <span style={{ fontSize: 12, color: '#7a8893', width: 30 }}>{pct}%</span>
+                    </div>
+                    <div style={{ color: '#7a8893', fontSize: 13 }}>{p.dueDate || '-'}</div>
+                    <div style={{ textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmt(p.value)}</div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* Priority Tasks */}
+          <div style={{ ...card, padding: '20px 22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fbe9e5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c4593f' }}>priority_high</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>สิ่งที่ต้องทำก่อน · 5 อันดับด่วนสุด</div>
+                  <div style={{ fontSize: 12.5, color: '#9aa7b2' }}>คำนวณจากเงินที่กำลังรั่ว × ความเร่งด่วน</div>
+                </div>
+              </div>
+              <Link href="/leaks" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#c4593f', fontWeight: 600, textDecoration: 'none' }}>
+                ดูทั้งหมด
+                <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
+              </Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {PRIORITY_TASKS.map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5' }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                    {i + 1}
+                  </div>
+                  <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>check_box_outline_blank</span>
+                  <div style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</div>
+                  <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>
+                    {t.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT column */}
+        <div style={{ width: 312, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* Tax invoices */}
+          <div style={{ background: 'linear-gradient(135deg,#ecebf8,#f5f4fc)', borderRadius: 18, padding: 20, border: '1px solid #e3e1f3' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#6760a8' }}>article</span>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>ใบกำกับภาษีรอส่ง</div>
+              </div>
+              <Link href="/documents" style={{ fontSize: 12.5, color: '#6760a8', fontWeight: 600, textDecoration: 'none' }}>ดูทั้งหมด</Link>
+            </div>
+            <div style={{ fontSize: 12, color: '#8a7fb5', marginBottom: 14 }}>
+              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pendingDocs.length > 0 ? pendingDocs.map(doc => {
+                const total = calcDocTotal(doc.items, doc.discount, doc.vatEnabled)
+                return (
+                  <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{doc.clientName || '-'}</div>
+                      <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{doc.no} · {doc.issueDate}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{Math.round(total).toLocaleString('th-TH')}</div>
+                  </div>
                 )
-              })}
-            </tbody>
-          </table>
+              }) : [
+                { cust: 'LUXE CO., LTD.', no: 'TAX-2025-001', date: '20/05/68', amount: 53500 },
+                { cust: 'GLOWME', no: 'TAX-2025-002', date: '19/05/68', amount: 47500 },
+                { cust: 'PERCARE', no: 'TAX-2025-003', date: '18/05/68', amount: 32100 },
+              ].map(inv => (
+                <div key={inv.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{inv.cust}</div>
+                    <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{inv.no} · {inv.date}</div>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{inv.amount.toLocaleString('th-TH')}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mini Calendar */}
+          <div style={{ ...card, padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ปฏิทินงานวันนี้</div>
+              <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>expand_more</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: '#8a97a2', marginBottom: 14 }}>{todayStr}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 16 }}>
+              {weekDays.map((d, i) => (
+                <div key={i} style={{ textAlign: 'center', fontSize: 11, color: '#9aa7b2', paddingBottom: 4 }}>{d.label}</div>
+              ))}
+              {weekDays.map((d, i) => (
+                <div key={i} style={{
+                  width: 30, height: 30, borderRadius: '50%', margin: '0 auto',
+                  background: d.isToday ? '#5f7d99' : 'transparent',
+                  color: d.isToday ? '#fff' : '#2f3b45',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: d.isToday ? 700 : 400,
+                }}>
+                  {d.date}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {SCHEDULE.map((ev, i) => (
+                <div key={i} style={{ display: 'flex', gap: 11 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", width: 48, flexShrink: 0, paddingTop: 1 }}>{ev.time}</div>
+                  <div style={{ borderLeft: '2px solid #cdd9e3', paddingLeft: 11, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: '#2f3b45' }}>{ev.title}</div>
+                    <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 1 }}>{ev.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tasks */}
+          <div style={{ ...card, padding: 20 }}>
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ภารกิจที่ต้องทำ</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {PRIORITY_TASKS.map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c3cdd6' }}>check_box_outline_blank</span>
+                  <span style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</span>
+                  <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>{t.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Activity Feed */}
+          <div style={{ ...card, padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>กิจกรรมล่าสุด</div>
+              <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>ดูทั้งหมด</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+              {ACTIVITIES.map((a, i) => (
+                <div key={i} style={{ display: 'flex', gap: 11 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: a.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 17, color: a.iconColor }}>{a.icon}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: '#3b4954', lineHeight: 1.4 }}>{a.title}</div>
+                    <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{a.meta}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

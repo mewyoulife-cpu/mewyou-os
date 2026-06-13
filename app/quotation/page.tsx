@@ -7,43 +7,32 @@ import Link from 'next/link'
 interface Quotation {
   id: string
   no: string
-  status: 'draft' | 'sent' | 'approved' | 'rejected'
+  clientName: string
+  projectName: string
   issueDate: string
-  expiry?: string
-  clientName?: string
-  discount: number
-  vatEnabled: boolean
-  items: string
-  customer?: { name: string; company?: string }
+  total: number
+  status: 'draft' | 'sent' | 'approved' | 'rejected'
 }
 
 const statusMap = {
-  draft: { label: 'ร่าง', bg: '#f0f2f5', color: '#8a97a2' },
-  sent: { label: 'ส่งแล้ว', bg: '#e8f1f9', color: '#6b96c2' },
-  approved: { label: 'อนุมัติแล้ว', bg: '#e9f3ed', color: '#3d8a64' },
-  rejected: { label: 'ปฏิเสธ', bg: '#fceee8', color: '#e07b54' },
+  draft:    { label: 'ร่าง',    bg: '#f5f7f9', color: '#7a8893' },
+  sent:     { label: 'รอตอบ',   bg: '#fdf3e3', color: '#f4a431' },
+  approved: { label: 'อนุมัติ', bg: '#e9f3ed', color: '#3d8a64' },
+  rejected: { label: 'ยกเลิก',  bg: '#fceee8', color: '#c4593f' },
 }
 
-function calcTotal(q: Quotation): number {
-  try {
-    const items = typeof q.items === 'string' ? JSON.parse(q.items) : q.items
-    const sub = items.reduce((s: number, i: { qty: number; price: number }) => s + (i.qty * i.price), 0)
-    const afterDiscount = sub - (q.discount || 0)
-    return q.vatEnabled ? afterDiscount * 1.07 : afterDiscount
-  } catch {
-    return 0
-  }
-}
-
-function fmt(n: number) {
-  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function fmtMoney(n: number) {
+  return '฿' + Math.round(n).toLocaleString('th-TH')
 }
 
 export default function QuotationListPage() {
   const router = useRouter()
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/quotations')
@@ -56,167 +45,214 @@ export default function QuotationListPage() {
   }, [])
 
   const counts = {
-    all: quotations.length,
-    draft: quotations.filter(q => q.status === 'draft').length,
-    sent: quotations.filter(q => q.status === 'sent').length,
+    all:      quotations.length,
+    sent:     quotations.filter(q => q.status === 'sent').length,
     approved: quotations.filter(q => q.status === 'approved').length,
+    rejected: quotations.filter(q => q.status === 'rejected').length,
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('ลบใบเสนอราคานี้?')) return
-    await fetch(`/api/quotations/${id}`, { method: 'DELETE' })
-    setQuotations(prev => prev.filter(q => q.id !== id))
-    setDeleteId(null)
-  }
-
-  const summaryCards = [
-    { label: 'ทั้งหมด', count: counts.all, icon: 'description', color: '#5f7d99', bg: '#e8eef4' },
-    { label: 'ร่าง', count: counts.draft, icon: 'edit_note', color: '#8a97a2', bg: '#f0f2f5' },
-    { label: 'ส่งแล้ว', count: counts.sent, icon: 'send', color: '#6b96c2', bg: '#e8f1f9' },
-    { label: 'อนุมัติแล้ว', count: counts.approved, icon: 'check_circle', color: '#3d8a64', bg: '#e9f3ed' },
+  const kpiCards = [
+    { label: 'ทั้งหมด', value: counts.all,      accent: { width: 4, height: 40, borderRadius: 4, background: '#5f7d99' } },
+    { label: 'รอตอบ',   value: counts.sent,     accent: { width: 4, height: 40, borderRadius: 4, background: '#f4a431' } },
+    { label: 'อนุมัติ', value: counts.approved, accent: { width: 4, height: 40, borderRadius: 4, background: '#3d8a64' } },
+    { label: 'ยกเลิก',  value: counts.rejected, accent: { width: 4, height: 40, borderRadius: 4, background: '#c4593f' } },
   ]
 
+  const filterLabels: Record<string, string> = {
+    all: 'สถานะ',
+    draft: 'ร่าง',
+    sent: 'รอตอบ',
+    approved: 'อนุมัติ',
+    rejected: 'ยกเลิก',
+  }
+
+  const filtered = quotations.filter(q => {
+    const s = search.toLowerCase()
+    const matchSearch = !s || q.no?.toLowerCase().includes(s) || q.clientName?.toLowerCase().includes(s) || q.projectName?.toLowerCase().includes(s)
+    const matchStatus = filterStatus === 'all' || q.status === filterStatus
+    return matchSearch && matchStatus
+  })
+
   return (
-    <div>
+    <div style={{ fontFamily: "'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif" }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '16px 0 18px' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>ใบเสนอราคา</h1>
-          <p style={{ fontSize: 14, color: '#7a8893', margin: '4px 0 0' }}>{quotations.length} รายการ</p>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>ใบเสนอราคา</div>
+          <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>จัดการใบเสนอราคาทั้งหมดของสตูดิโอ</div>
         </div>
         <Link href="/quotation/new" style={{ textDecoration: 'none' }}>
-          <button style={{
-            background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 10,
-            padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            height: 42, padding: '0 18px', borderRadius: 11,
+            background: '#5f7d99', color: '#fff',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(95,125,153,.3)',
           }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
             สร้างใบเสนอราคา
-          </button>
+          </div>
         </Link>
       </div>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-        {summaryCards.map(card => (
+      {/* KPI Cards */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
+        {kpiCards.map(card => (
           <div key={card.label} style={{
-            background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22,
-            display: 'flex', alignItems: 'center', gap: 16,
+            flex: '1 1 150px', minWidth: 140,
+            background: '#fff', borderRadius: 14, border: '1px solid #edf0f3',
+            padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 13,
           }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 12, background: card.bg,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 24, color: card.color }}>{card.icon}</span>
-            </div>
+            <div style={card.accent} />
             <div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: '#2f3b45', lineHeight: 1 }}>{card.count}</div>
-              <div style={{ fontSize: 13, color: '#7a8893', marginTop: 4 }}>{card.label}</div>
+              <div style={{ fontSize: 12.5, color: '#7a8893' }}>{card.label}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{card.value}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Table */}
-      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', color: '#9aa7b2', padding: 60, fontSize: 15 }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>hourglass_empty</span>
-            กำลังโหลด...
+      {/* Main Card */}
+      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: '18px 20px' }}>
+
+        {/* Search + Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div style={{
+            flex: 1, minWidth: 200,
+            display: 'flex', alignItems: 'center', gap: 9,
+            background: '#f5f7f9', border: '1px solid #eaedf0', borderRadius: 10,
+            height: 40, padding: '0 14px',
+          }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9aa7b2' }}>search</span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ค้นหาเลขที่, ลูกค้า, โปรเจกต์..."
+              style={{
+                border: 'none', outline: 'none', background: 'transparent',
+                flex: 1, fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45',
+              }}
+            />
           </div>
-        ) : quotations.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#9aa7b2', padding: 60 }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 48, display: 'block', marginBottom: 12, color: '#d0d8e0' }}>description</span>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#7a8893', marginBottom: 6 }}>ยังไม่มีใบเสนอราคา</div>
-            <div style={{ fontSize: 14 }}>สร้างใบเสนอราคาใบแรกของคุณ</div>
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => setFilterOpen(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 40, padding: '0 14px',
+                border: '1px solid #eaedf0', borderRadius: 10,
+                fontSize: 13.5, color: '#5b6b77', cursor: 'pointer', background: '#fff',
+                userSelect: 'none',
+              }}
+            >
+              {filterLabels[filterStatus] ?? 'สถานะ'}
+              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>expand_more</span>
+            </div>
+            {filterOpen && (
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
+                background: '#fff', borderRadius: 12, border: '1px solid #eaedf0',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.10)', overflow: 'hidden', minWidth: 140,
+              }}>
+                {(['all', 'draft', 'sent', 'approved', 'rejected'] as const).map(s => (
+                  <div
+                    key={s}
+                    onClick={() => { setFilterStatus(s); setFilterOpen(false) }}
+                    style={{
+                      padding: '10px 16px', fontSize: 13.5, color: filterStatus === s ? '#5f7d99' : '#2f3b45',
+                      fontWeight: filterStatus === s ? 700 : 400, cursor: 'pointer',
+                      background: filterStatus === s ? '#f0f5fa' : '#fff',
+                    }}
+                    onMouseEnter={e => { if (filterStatus !== s) (e.currentTarget as HTMLDivElement).style.background = '#f5f7f9' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = filterStatus === s ? '#f0f5fa' : '#fff' }}
+                  >
+                    {filterLabels[s]}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Table Header */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr',
+          gap: 8,
+          fontSize: 12, color: '#9aa7b2', fontWeight: 500,
+          padding: '0 4px 12px',
+          borderBottom: '1px solid #f0f2f5',
+        }}>
+          <div>เลขที่</div>
+          <div>ลูกค้า</div>
+          <div>โปรเจกต์</div>
+          <div>วันที่</div>
+          <div style={{ textAlign: 'right' }}>ยอดเงิน</div>
+          <div style={{ textAlign: 'right' }}>สถานะ</div>
+        </div>
+
+        {/* Body */}
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', color: '#9aa7b2', gap: 10 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 40 }}>hourglass_empty</span>
+            <div style={{ fontSize: 14 }}>กำลังโหลด...</div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', color: '#9aa7b2', gap: 10 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 48, color: '#d0d8e0' }}>request_quote</span>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#7a8893' }}>ยังไม่มีใบเสนอราคา</div>
+            <div style={{ fontSize: 13 }}>สร้างใบเสนอราคาใบแรกของคุณ</div>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #edf0f3' }}>
-                {['เลขที่', 'ลูกค้า', 'วันที่', 'วันหมดอายุ', 'มูลค่า', 'สถานะ', 'Actions'].map(h => (
-                  <th key={h} style={{
-                    padding: '14px 18px', textAlign: 'left', fontSize: 12, fontWeight: 600,
-                    color: '#9aa7b2', textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {quotations.map((q, idx) => {
-                const st = statusMap[q.status] || statusMap.draft
-                const total = calcTotal(q)
-                return (
-                  <tr
-                    key={q.id}
-                    style={{
-                      borderBottom: idx < quotations.length - 1 ? '1px solid #f5f7f9' : 'none',
-                      cursor: 'pointer',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = '#f9fafb'}
-                    onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'}
-                    onClick={() => router.push(`/quotation/${q.id}`)}
-                  >
-                    <td style={{ padding: '14px 18px', fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>
-                      {q.no}
-                    </td>
-                    <td style={{ padding: '14px 18px', fontSize: 14, color: '#4a5a67' }}>
-                      <div style={{ fontWeight: 500 }}>{q.clientName || q.customer?.name || '—'}</div>
-                      {q.customer?.company && (
-                        <div style={{ fontSize: 12, color: '#9aa7b2' }}>{q.customer.company}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '14px 18px', fontSize: 13, color: '#7a8893' }}>{q.issueDate}</td>
-                    <td style={{ padding: '14px 18px', fontSize: 13, color: '#7a8893' }}>{q.expiry || '—'}</td>
-                    <td style={{ padding: '14px 18px', fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>
-                      ฿{fmt(total)}
-                    </td>
-                    <td style={{ padding: '14px 18px' }}>
-                      <span style={{
-                        background: st.bg, color: st.color,
-                        borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 600,
-                      }}>{st.label}</span>
-                    </td>
-                    <td style={{ padding: '14px 18px' }} onClick={e => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button
-                          onClick={() => router.push(`/quotation/${q.id}`)}
-                          title="ดู"
-                          style={{
-                            background: '#f0f2f5', color: '#5f7d99', border: 'none', borderRadius: 8,
-                            width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <span className="material-symbols-rounded" style={{ fontSize: 16 }}>visibility</span>
-                        </button>
-                        <button
-                          onClick={() => router.push(`/quotation/${q.id}?edit=1`)}
-                          title="แก้ไข"
-                          style={{
-                            background: '#e8f1f9', color: '#6b96c2', border: 'none', borderRadius: 8,
-                            width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <span className="material-symbols-rounded" style={{ fontSize: 16 }}>edit</span>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(q.id)}
-                          title="ลบ"
-                          style={{
-                            background: '#fceee8', color: '#e07b54', border: 'none', borderRadius: 8,
-                            width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <span className="material-symbols-rounded" style={{ fontSize: 16 }}>delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          filtered.map(q => {
+            const st = statusMap[q.status] ?? statusMap.draft
+            return (
+              <div
+                key={q.id}
+                onClick={() => router.push(`/quotation/${q.id}`)}
+                onMouseEnter={() => setHoveredRow(q.id)}
+                onMouseLeave={() => setHoveredRow(null)}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr',
+                  gap: 8,
+                  alignItems: 'center',
+                  fontSize: 13.5,
+                  padding: '14px 4px',
+                  borderBottom: '1px solid #f4f6f8',
+                  cursor: 'pointer',
+                  background: hoveredRow === q.id ? '#fafbfc' : 'transparent',
+                  transition: 'background 0.12s',
+                }}
+              >
+                <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>
+                  {q.no}
+                </div>
+                <div style={{ fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {q.clientName || '—'}
+                </div>
+                <div style={{ color: '#7a8893', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {q.projectName || '—'}
+                </div>
+                <div style={{ color: '#7a8893', fontSize: 13 }}>
+                  {q.issueDate || '—'}
+                </div>
+                <div style={{ textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                  {fmtMoney(q.total ?? 0)}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    background: st.bg, color: st.color,
+                    borderRadius: 8, padding: '4px 10px',
+                    fontSize: 12, fontWeight: 600,
+                  }}>
+                    {st.label}
+                  </span>
+                </div>
+              </div>
+            )
+          })
         )}
       </div>
     </div>

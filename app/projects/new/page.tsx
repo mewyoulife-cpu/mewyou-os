@@ -4,55 +4,62 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  lead: { label: 'Lead', bg: '#eef2f5', color: '#8fa7bc' },
-  brief: { label: 'Brief', bg: '#e8f1f9', color: '#6b96c2' },
-  quotation: { label: 'Quotation', bg: '#f0eaf9', color: '#9575cd' },
-  payment: { label: 'Payment', bg: '#fdf3e3', color: '#f4a431' },
-  design: { label: 'Design', bg: '#e8eef4', color: '#5f7d99' },
-  revision: { label: 'Revision', bg: '#fceee8', color: '#e07b54' },
-  approved: { label: 'Approved', bg: '#e9f3ed', color: '#3d8a64' },
-  deliver: { label: 'Deliver', bg: '#e3f2fd', color: '#2196f3' },
-  completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50' },
+const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num: number }> = {
+  lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc', num: 1 },
+  brief:     { label: 'Brief',     bg: '#e8f1f9', color: '#6b96c2', num: 2 },
+  quotation: { label: 'Quotation', bg: '#f0eaf9', color: '#9575cd', num: 3 },
+  payment:   { label: 'Payment',   bg: '#fdf3e3', color: '#f4a431', num: 4 },
+  design:    { label: 'Design',    bg: '#e8eef4', color: '#5f7d99', num: 5 },
+  revision:  { label: 'Revision',  bg: '#fceee8', color: '#e07b54', num: 6 },
+  approved:  { label: 'Approved',  bg: '#e9f3ed', color: '#3d8a64', num: 7 },
+  deliver:   { label: 'Deliver',   bg: '#e3f2fd', color: '#2196f3', num: 8 },
+  completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50', num: 9 },
 }
 
-const JOB_TYPES = ['Logo', 'Packaging Design', 'Label Design', 'Sticker', 'Box Design', 'Brochure', 'Mockup', 'Artwork']
+const JOB_TYPES = ['Label Design', 'Packaging', 'Logo/CI', 'Illustration', 'Motion Design', 'Publication', 'Brand Identity', 'อื่นๆ']
 const STATUSES = Object.keys(STATUS_MAP)
 
-type Customer = { id: string; name: string; company?: string }
+const PRIORITY_OPTIONS = [
+  { value: 'low',    label: 'ต่ำ',      color: '#9aa7b2', bg: '#f0f2f5' },
+  { value: 'normal', label: 'ปกติ',     color: '#5f7d99', bg: '#e8eef4' },
+  { value: 'high',   label: 'สูง',      color: '#f4a431', bg: '#fdf3e3' },
+  { value: 'urgent', label: 'เร่งด่วน', color: '#e05a4a', bg: '#fceee8' },
+]
 
-function fmt(n: number) {
-  return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+type Customer = { id: string; name: string; company?: string }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   height: 40,
+  border: '1px solid #e4e8ec',
   borderRadius: 10,
-  border: '1px solid #dde3e9',
   padding: '0 12px',
   fontSize: 14,
   color: '#2f3b45',
   background: '#fff',
-  boxSizing: 'border-box',
   outline: 'none',
+  boxSizing: 'border-box',
   fontFamily: 'inherit',
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: '#7a8893',
-  marginBottom: 6,
-  display: 'block',
 }
 
 const cardStyle: React.CSSProperties = {
   background: '#fff',
   borderRadius: 18,
   border: '1px solid #edf0f3',
-  padding: '20px 22px',
-  marginBottom: 16,
+  padding: 24,
+}
+
+const cardHeadingStyle: React.CSSProperties = {
+  fontSize: 15.5,
+  fontWeight: 600,
+  color: '#2f3b45',
+  marginBottom: 18,
+}
+
+const labelDivStyle: React.CSSProperties = {
+  fontSize: 12.5,
+  color: '#7a8893',
+  marginBottom: 6,
 }
 
 export default function NewProjectPage() {
@@ -116,115 +123,122 @@ export default function NewProjectPage() {
   const selectedCustomer = customers.find(c => c.id === form.customerId)
   const previewCode = `PJ-${new Date().getFullYear()}-XXX`
   const s = STATUS_MAP[form.status]
+  const selectedPriority = PRIORITY_OPTIONS.find(p => p.value === form.priority)!
 
   return (
     <div style={{ color: '#2f3b45' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      {/* Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#9aa7b2', margin: '16px 0 6px' }}>
+        <Link href="/projects" style={{ color: '#9aa7b2', textDecoration: 'none' }}>โปรเจกต์ทั้งหมด</Link>
+        <span className="material-symbols-rounded" style={{ fontSize: 16 }}>chevron_right</span>
+        <span style={{ color: '#5b6b77' }}>สร้างใหม่</span>
+      </div>
+
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '0 0 18px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#7a8893', marginBottom: 4 }}>
-            <Link href="/projects" style={{ color: '#7a8893', textDecoration: 'none' }}>โปรเจกต์ทั้งหมด</Link>
-            <span>/</span>
-            <span style={{ color: '#2f3b45' }}>สร้างโปรเจกต์ใหม่</span>
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>สร้างโปรเจกต์ใหม่</div>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>สร้างโปรเจกต์ใหม่</div>
+          <div style={{ fontSize: 13, color: '#9aa7b2', marginTop: 2, fontFamily: "'IBM Plex Sans', monospace" }}>{previewCode}</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <Link
             href="/projects"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#f0f3f5', color: '#5f7d99', borderRadius: 10, padding: '9px 18px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
+            style={{ display: 'flex', alignItems: 'center', height: 40, padding: '0 16px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: 'pointer', background: '#fff', textDecoration: 'none' }}
           >
             ยกเลิก
           </Link>
           <button
             onClick={handleSubmit}
-            disabled={saving || !form.name || !form.customerId}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: !form.name || !form.customerId ? '#c8d4de' : '#5f7d99', color: '#fff', borderRadius: 10, padding: '9px 18px', fontSize: 14, fontWeight: 600, border: 'none', cursor: !form.name || !form.customerId ? 'not-allowed' : 'pointer' }}
+            disabled={saving}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 18px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)', border: 'none' }}
           >
-            {saving ? (
-              <span className="material-symbols-rounded" style={{ fontSize: 18 }}>autorenew</span>
-            ) : (
-              <span className="material-symbols-rounded" style={{ fontSize: 18 }}>add</span>
-            )}
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>check</span>
             สร้างโปรเจกต์
           </button>
         </div>
       </div>
 
       {/* Layout */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {/* Left */}
-        <div style={{ flex: 1.7, minWidth: 0 }}>
-          {/* Project Info */}
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+        {/* LEFT */}
+        <div style={{ flex: '1.7 1 460px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* Card 1: ข้อมูลโปรเจกต์ */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>info</span>
-              ข้อมูลโปรเจกต์
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={cardHeadingStyle}>ข้อมูลโปรเจกต์</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* ชื่อโปรเจกต์ */}
               <div>
-                <label style={labelStyle}>ชื่อโปรเจกต์ *</label>
+                <div style={labelDivStyle}>ชื่อโปรเจกต์ <span style={{ color: '#c4593f' }}>*</span></div>
                 <input
                   style={inputStyle}
-                  placeholder="เช่น โลโก้ LUXE Brand"
+                  placeholder="เช่น Body Serum Label, Collagen Packaging"
                   value={form.name}
                   onChange={e => set('name', e.target.value)}
                 />
               </div>
-              <div>
-                <label style={labelStyle}>ลูกค้า *</label>
-                <select
-                  style={{ ...inputStyle, appearance: 'none' }}
-                  value={form.customerId}
-                  onChange={e => set('customerId', e.target.value)}
-                >
-                  <option value="">เลือกลูกค้า</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>ผู้รับผิดชอบ</label>
-                <input
-                  style={inputStyle}
-                  placeholder="ชื่อผู้รับผิดชอบ"
-                  value={form.assignee}
-                  onChange={e => set('assignee', e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Job Types */}
-          <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>palette</span>
-              ประเภทงาน
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {JOB_TYPES.map(t => {
-                const active = form.types.includes(t)
-                return (
-                  <button
-                    key={t}
-                    onClick={() => toggleType(t)}
-                    style={{ padding: '6px 14px', borderRadius: 20, border: active ? '1.5px solid #5f7d99' : '1.5px solid #dde3e9', background: active ? '#e8eef4' : '#fff', color: active ? '#5f7d99' : '#7a8893', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s' }}
+              {/* ลูกค้า + ผู้รับผิดชอบ */}
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={labelDivStyle}>ลูกค้า <span style={{ color: '#c4593f' }}>*</span></div>
+                  <select
+                    style={{ ...inputStyle, appearance: 'none' } as React.CSSProperties}
+                    value={form.customerId}
+                    onChange={e => set('customerId', e.target.value)}
                   >
-                    {t}
-                  </button>
-                )
-              })}
+                    <option value="">เลือกลูกค้า</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={labelDivStyle}>ผู้รับผิดชอบ</div>
+                  <input
+                    style={inputStyle}
+                    placeholder="ชื่อผู้รับผิดชอบ"
+                    value={form.assignee}
+                    onChange={e => set('assignee', e.target.value)}
+                  />
+                </div>
+              </div>
+              {/* ประเภทงาน */}
+              <div>
+                <div style={labelDivStyle}>ประเภทงาน</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
+                  {JOB_TYPES.map(t => {
+                    const active = form.types.includes(t)
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => toggleType(t)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: 20,
+                          border: active ? '1.5px solid #5f7d99' : '1.5px solid #dde3e9',
+                          background: active ? '#e8eef4' : '#fff',
+                          color: active ? '#5f7d99' : '#7a8893',
+                          fontSize: 13,
+                          fontWeight: active ? 600 : 400,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {t}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Status */}
+          {/* Card 2: สถานะเริ่มต้น */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>flag</span>
-              สถานะเริ่มต้น
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div style={cardHeadingStyle}>สถานะเริ่มต้น</div>
+            <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 14 }}>เลือกขั้นตอนที่โปรเจกต์เริ่มต้น (ปกติเริ่มที่ Lead)</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {STATUSES.map(st => {
                 const sm = STATUS_MAP[st]
                 const active = form.status === st
@@ -232,8 +246,36 @@ export default function NewProjectPage() {
                   <button
                     key={st}
                     onClick={() => set('status', st)}
-                    style={{ padding: '6px 14px', borderRadius: 20, border: active ? `1.5px solid ${sm.color}` : '1.5px solid #dde3e9', background: active ? sm.bg : '#fff', color: active ? sm.color : '#7a8893', fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 14px',
+                      borderRadius: 20,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontFamily: 'inherit',
+                      border: `1.5px solid ${active ? sm.color : '#dde3e9'}`,
+                      background: active ? sm.bg : '#fff',
+                      color: active ? sm.color : '#7a8893',
+                      fontWeight: active ? 600 : 400,
+                    }}
                   >
+                    <span style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#fff',
+                      flexShrink: 0,
+                      background: active ? sm.color : '#c8d4de',
+                    }}>
+                      {sm.num}
+                    </span>
                     {sm.label}
                   </button>
                 )
@@ -241,134 +283,153 @@ export default function NewProjectPage() {
             </div>
           </div>
 
-          {/* Schedule & Value */}
+          {/* Card 3: กำหนดการ & มูลค่า */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>schedule</span>
-              กำหนดการ & มูลค่า
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>วันที่เริ่ม</label>
-                <input type="date" style={inputStyle} value={form.startDate} onChange={e => set('startDate', e.target.value)} />
+            <div style={cardHeadingStyle}>กำหนดการ & มูลค่า</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={labelDivStyle}>วันที่เริ่ม</div>
+                <input
+                  type="date"
+                  style={{ height: 40, border: '1px solid #e4e8ec', borderRadius: 10, padding: '0 12px', width: '100%', fontSize: 14, color: '#5b6b77', outline: 'none', background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  value={form.startDate}
+                  onChange={e => set('startDate', e.target.value)}
+                />
               </div>
-              <div>
-                <label style={labelStyle}>กำหนดส่ง</label>
-                <input type="date" style={inputStyle} value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={labelDivStyle}>กำหนดส่ง</div>
+                <input
+                  type="date"
+                  style={{ height: 40, border: '1px solid #e4e8ec', borderRadius: 10, padding: '0 12px', width: '100%', fontSize: 14, color: '#5b6b77', outline: 'none', background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  value={form.dueDate}
+                  onChange={e => set('dueDate', e.target.value)}
+                />
               </div>
-              <div>
-                <label style={labelStyle}>มูลค่างาน (บาท)</label>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={labelDivStyle}>มูลค่างาน (บาท)</div>
                 <input
                   type="number"
                   style={inputStyle}
-                  placeholder="0.00"
+                  placeholder="0"
                   value={form.value}
                   onChange={e => set('value', e.target.value)}
                 />
               </div>
-              <div>
-                <label style={labelStyle}>ระดับความสำคัญ</label>
-                <select style={{ ...inputStyle, appearance: 'none' }} value={form.priority} onChange={e => set('priority', e.target.value)}>
-                  <option value="low">ต่ำ</option>
-                  <option value="normal">ปกติ</option>
-                  <option value="high">สูง</option>
-                  <option value="urgent">เร่งด่วน</option>
-                </select>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div style={labelDivStyle}>ระดับความสำคัญ</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
+                {PRIORITY_OPTIONS.map(p => {
+                  const active = form.priority === p.value
+                  return (
+                    <button
+                      key={p.value}
+                      onClick={() => set('priority', p.value)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        border: active ? `1.5px solid ${p.color}` : '1.5px solid #dde3e9',
+                        background: active ? p.bg : '#fff',
+                        color: active ? p.color : '#7a8893',
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 400,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
 
-          {/* Brief */}
+          {/* Card 4: รายละเอียดงาน / Brief */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>description</span>
-              Brief
-            </div>
+            <div style={{ ...cardHeadingStyle, marginBottom: 12 }}>รายละเอียดงาน / Brief</div>
             <textarea
-              style={{ ...inputStyle, height: 120, padding: '10px 12px', resize: 'vertical', lineHeight: 1.6 }}
-              placeholder="รายละเอียดโปรเจกต์, ความต้องการพิเศษ, เอกสารอ้างอิง..."
+              style={{ width: '100%', minHeight: 90, border: '1px solid #e4e8ec', borderRadius: 10, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }}
+              placeholder="สรุปความต้องการของลูกค้า สไตล์ โทนสี ขนาด ฯลฯ"
               value={form.brief}
               onChange={e => set('brief', e.target.value)}
             />
+            {/* Upload area (UI only) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 14, padding: 14, border: '1.5px dashed #d4dce2', borderRadius: 11, cursor: 'pointer' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 24, color: '#9fb6c9' }}>cloud_upload</span>
+              <div>
+                <div style={{ fontSize: 13.5, color: '#5b6b77' }}>แนบไฟล์ Brief / Reference</div>
+                <div style={{ fontSize: 12, color: '#9aa7b2' }}>รองรับ AI, PSD, PDF, PNG, JPG · ลากไฟล์มาวางหรือคลิกเพื่อเลือก</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Right - Preview */}
-        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 0 }}>
-          <div style={{ ...cardStyle, marginBottom: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>preview</span>
-              สรุปโปรเจกต์
+        {/* RIGHT SIDEBAR */}
+        <div style={{ width: 330, flex: '1 1 290px', position: 'sticky', top: 6, background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 24 }}>
+          <div style={cardHeadingStyle}>สรุปโปรเจกต์</div>
+
+          {/* Preview box */}
+          <div style={{ background: '#f5f7f9', borderRadius: 13, padding: 18, marginBottom: 18 }}>
+            <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{previewCode}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#2f3b45', marginTop: 3, wordBreak: 'break-word' }}>
+              {form.name || <span style={{ color: '#c8d4de', fontWeight: 400 }}>ยังไม่ได้ระบุชื่อ</span>}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ padding: '12px 14px', background: '#f8fafc', borderRadius: 12, border: '1px solid #edf0f3' }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#9fb0bf', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.08em' }}>รหัสโปรเจกต์</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#5f7d99' }}>{previewCode}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>ชื่อโปรเจกต์</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>{form.name || <span style={{ color: '#c8d4de' }}>ยังไม่ได้ระบุ</span>}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>ลูกค้า</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>{selectedCustomer?.name || <span style={{ color: '#c8d4de' }}>ยังไม่ได้เลือก</span>}</div>
-              </div>
-
-              {form.types.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 6 }}>ประเภทงาน</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {form.types.map(t => (
-                      <span key={t} style={{ padding: '3px 10px', borderRadius: 6, background: '#e8eef4', color: '#5f7d99', fontSize: 11, fontWeight: 600 }}>{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 6 }}>สถานะ</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', height: 26, padding: '0 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>
-              </div>
-
-              {form.value && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>มูลค่างาน</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#2f3b45' }}>{fmt(parseFloat(form.value) || 0)}</div>
-                </div>
-              )}
-
-              {form.dueDate && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>กำหนดส่ง</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#2f3b45', fontWeight: 500 }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 15, color: '#9fb0bf' }}>calendar_today</span>
-                    {form.dueDate}
-                  </div>
-                </div>
-              )}
-
-              {form.priority !== 'normal' && (
-                <div>
-                  <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>ความสำคัญ</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: form.priority === 'urgent' ? '#e05a4a' : form.priority === 'high' ? '#f4a431' : '#7a8893' }}>
-                    {form.priority === 'urgent' ? 'เร่งด่วน' : form.priority === 'high' ? 'สูง' : form.priority === 'low' ? 'ต่ำ' : 'ปกติ'}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #edf0f3' }}>
-              <button
-                onClick={handleSubmit}
-                disabled={saving || !form.name || !form.customerId}
-                style={{ width: '100%', background: !form.name || !form.customerId ? '#c8d4de' : '#5f7d99', color: '#fff', borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, border: 'none', cursor: !form.name || !form.customerId ? 'not-allowed' : 'pointer' }}
-              >
-                {saving ? 'กำลังสร้าง...' : 'สร้างโปรเจกต์'}
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#9fb0bf' }}>person</span>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>{selectedCustomer?.name || <span style={{ color: '#c8d4de' }}>ยังไม่ได้เลือกลูกค้า</span>}</span>
             </div>
           </div>
+
+          {/* Info rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, color: '#9aa7b2' }}>ประเภทงาน</span>
+              <span style={{ fontSize: 13.5, color: '#2f3b45', fontWeight: 500 }}>
+                {form.types.length > 0 ? form.types.join(', ') : '—'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, color: '#9aa7b2' }}>สถานะ</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, background: s.bg, color: s.color }}>
+                {s.label}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, color: '#9aa7b2' }}>ความสำคัญ</span>
+              <span style={{ fontSize: 13.5, color: selectedPriority.color, fontWeight: 500 }}>{selectedPriority.label}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, color: '#9aa7b2' }}>กำหนดส่ง</span>
+              <span style={{ fontSize: 13.5, color: '#2f3b45', fontWeight: 500 }}>{form.dueDate || '—'}</span>
+            </div>
+          </div>
+
+          {/* Divider + มูลค่างาน */}
+          <div style={{ paddingTop: 14, borderTop: '1.5px solid #eef1f4', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 13 }}>
+            <span style={{ fontSize: 13, color: '#9aa7b2' }}>มูลค่างาน</span>
+            <span style={{ fontSize: 21, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', monospace" }}>
+              ฿{form.value ? Number(form.value).toLocaleString() : '0'}
+            </span>
+          </div>
+
+          {/* Create button */}
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 12, background: '#5f7d99', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', marginTop: 20, boxShadow: '0 4px 12px rgba(95,125,153,.3)', border: 'none' }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add_task</span>
+            {saving ? 'กำลังสร้าง...' : 'สร้างโปรเจกต์'}
+          </button>
+
+          {/* Warning */}
+          {(!form.name || !form.customerId) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 11, fontSize: 12, color: '#a9762f' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>info</span>
+              กรอกชื่อโปรเจกต์และเลือกลูกค้าก่อน
+            </div>
+          )}
         </div>
       </div>
     </div>

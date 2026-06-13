@@ -16,10 +16,22 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50' },
 }
 
-const STEPS = ['lead', 'brief', 'quotation', 'payment', 'design', 'revision', 'approved', 'deliver', 'completed']
+const STATUSES = ['lead', 'brief', 'quotation', 'payment', 'design', 'revision', 'approved', 'deliver', 'completed']
+const LABELS = ['Lead', 'Brief', 'Quotation', 'Payment', 'Design', 'Revision', 'Approved', 'Deliver', 'Completed']
+const THAI_LABELS = [
+  'รับงาน / เปิดโปรเจกต์',
+  'รับ Brief จากลูกค้า',
+  'จัดทำใบเสนอราคา',
+  'รับชำระเงินมัดจำ',
+  'ออกแบบงาน',
+  'ส่ง Revision ให้ลูกค้า',
+  'ลูกค้าอนุมัติงาน',
+  'ส่งมอบงานให้ลูกค้า',
+  'ปิดโปรเจกต์',
+]
 
-function fmt(n: number) {
-  return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+function fmtValue(n: number) {
+  return '฿' + Math.round(n).toLocaleString('th-TH')
 }
 
 type Project = {
@@ -91,19 +103,11 @@ export default function ProjectDetailPage() {
     router.push('/projects')
   }
 
-  const card: React.CSSProperties = {
-    background: '#fff',
-    borderRadius: 18,
-    border: '1px solid #edf0f3',
-    padding: '20px 22px',
-    marginBottom: 16,
-  }
-
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: '#7a8893', gap: 10 }}>
-        <span className="material-symbols-rounded" style={{ fontSize: 28 }}>autorenew</span>
-        กำลังโหลด...
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, color: '#7a8893', gap: 10 }}>
+        <span className="material-symbols-rounded" style={{ fontSize: 36, color: '#9aa7b2' }}>hourglass_empty</span>
+        <span style={{ fontSize: 14, color: '#9aa7b2' }}>กำลังโหลด...</span>
       </div>
     )
   }
@@ -118,213 +122,223 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const currentStepIndex = STEPS.indexOf(project.status)
+  const currentStepIndex = STATUSES.indexOf(project.status)
   const s = STATUS_MAP[project.status] || { label: project.status, bg: '#f0f2f5', color: '#8a97a2' }
-  const profit = project.value - project.cost
-  const profitMargin = project.value > 0 ? ((profit / project.value) * 100).toFixed(1) : '0.0'
 
   return (
     <div style={{ color: '#2f3b45' }}>
       {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#7a8893', marginBottom: 16 }}>
-        <Link href="/projects" style={{ color: '#7a8893', textDecoration: 'none' }}>โปรเจกต์ทั้งหมด</Link>
-        <span className="material-symbols-rounded" style={{ fontSize: 14 }}>chevron_right</span>
-        <span style={{ color: '#2f3b45', fontWeight: 500 }}>{project.customer?.name || project.name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#9aa7b2', margin: '16px 0 14px' }}>
+        <Link href="/projects" style={{ color: '#9aa7b2', textDecoration: 'none' }}>โปรเจกต์ทั้งหมด</Link>
+        <span className="material-symbols-rounded" style={{ fontSize: 16 }}>chevron_right</span>
+        <span style={{ color: '#5b6b77', fontWeight: 500, fontFamily: "'IBM Plex Sans', sans-serif" }}>{project.code}</span>
       </div>
 
-      {/* Project Header */}
-      <div style={{ ...card, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#9fb0bf', letterSpacing: '0.06em' }}>{project.code}</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>
-            {project.priority === 'urgent' && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, background: '#fde8e6', color: '#e05a4a' }}>เร่งด่วน</span>
-            )}
+      {/* Page Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+        {/* Left */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45' }}>
+              {project.customer?.name || project.name}
+            </span>
+            <span style={{
+              display: 'inline-flex',
+              padding: '4px 12px',
+              borderRadius: 20,
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: s.bg,
+              color: s.color,
+            }}>
+              {s.label}
+            </span>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#2f3b45', marginBottom: 4 }}>{project.name}</div>
-          <div style={{ fontSize: 14, color: '#7a8893' }}>
-            {project.customer?.name}{project.customer?.company ? ` • ${project.customer.company}` : ''}
+          <div style={{ fontSize: 15, color: '#7a8893', marginTop: 4 }}>
+            {project.name}{project.type ? ` · ${project.type}` : ''}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          {/* Status selector */}
-          <select
-            value={newStatus}
-            disabled={changingStatus}
-            onChange={e => handleStatusChange(e.target.value)}
-            style={{ height: 38, borderRadius: 10, border: '1px solid #dde3e9', padding: '0 12px', fontSize: 13, color: '#2f3b45', background: '#fff', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}
-          >
-            {STEPS.map(st => (
-              <option key={st} value={st}>{STATUS_MAP[st]?.label || st}</option>
-            ))}
-          </select>
+        {/* Right */}
+        <div style={{ display: 'flex', gap: 9 }}>
           <button
-            onClick={handleDelete}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 38, padding: '0 14px', borderRadius: 10, border: '1px solid #fde8e6', background: '#fff', color: '#e05a4a', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => router.push(`/projects/${id}/edit`)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 40,
+              padding: '0 16px',
+              border: '1px solid #e4e8ec',
+              borderRadius: 10,
+              fontSize: 13.5,
+              color: '#5b6b77',
+              fontWeight: 500,
+              cursor: 'pointer',
+              background: '#fff',
+            }}
           >
-            <span className="material-symbols-rounded" style={{ fontSize: 16 }}>delete</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 16 }}>edit</span>
+            แก้ไขโปรเจกต์
+          </button>
+          <button
+            style={{
+              width: 40,
+              height: 40,
+              border: '1px solid #e4e8ec',
+              borderRadius: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              background: '#fff',
+            }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5b6b77' }}>more_horiz</span>
           </button>
         </div>
       </div>
 
-      {/* 9-Step Progress Stepper */}
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>ความคืบหน้า</div>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start' }}>
-          {/* Connector line */}
-          <div style={{ position: 'absolute', top: 14, left: 14, right: 14, height: 2, background: '#edf0f3', zIndex: 0 }} />
-          <div style={{ position: 'absolute', top: 14, left: 14, height: 2, background: '#5f7d99', zIndex: 0, width: currentStepIndex >= 0 ? `${(currentStepIndex / (STEPS.length - 1)) * (100 - 0)}%` : '0%', transition: 'width 0.4s' }} />
-
-          {STEPS.map((step, i) => {
-            const sm = STATUS_MAP[step]
-            const isPast = i < currentStepIndex
-            const isCurrent = i === currentStepIndex
-            const isFuture = i > currentStepIndex
-
-            return (
-              <div key={step} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
-                <button
-                  onClick={() => handleStatusChange(step)}
-                  style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s', background: isPast ? '#3d8a64' : isCurrent ? '#5f7d99' : '#edf0f3' }}
-                >
-                  {isPast ? (
-                    <span className="material-symbols-rounded" style={{ fontSize: 15, color: '#fff' }}>check</span>
-                  ) : isCurrent ? (
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />
-                  ) : (
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#c8d4de' }} />
-                  )}
-                </button>
-                <div style={{ marginTop: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 10, fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#2f3b45' : isFuture ? '#c8d4de' : '#7a8893', whiteSpace: 'nowrap' }}>
-                    {sm?.label || step}
-                  </div>
-                  {isCurrent && <div style={{ fontSize: 9, color: '#5f7d99', fontWeight: 600, marginTop: 1 }}>ปัจจุบัน</div>}
-                </div>
+      {/* Main Row */}
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+        {/* Left Card — ข้อมูลโปรเจกต์ */}
+        <div style={{ flex: '1 1 280px', background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 18 }}>ข้อมูลโปรเจกต์</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {[
+              { label: 'ลูกค้า', value: project.customer?.name ?? null },
+              { label: 'ประเภทงาน', value: project.type ?? null },
+              { label: 'ผู้รับผิดชอบ', value: project.assignee ?? null },
+              { label: 'วันที่เริ่ม', value: project.startDate ?? null },
+              { label: 'กำหนดส่ง', value: project.dueDate ?? null },
+              { label: 'ความสำคัญ', value: project.priority ?? null },
+            ].map(row => (
+              <div key={row.label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ fontSize: 13, color: '#9aa7b2' }}>{row.label}</span>
+                <span style={{ fontSize: 14, color: '#2f3b45', fontWeight: 500, textAlign: 'right' }}>
+                  {row.value || '—'}
+                </span>
               </div>
-            )
-          })}
+            ))}
+          </div>
+          <div style={{ height: 1, background: '#f0f2f5', margin: '20px 0' }} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: '#9aa7b2' }}>มูลค่างาน</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+              {fmtValue(project.value)}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Card — ขั้นตอนการทำงาน */}
+        <div style={{ flex: '1.3 1 360px', background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 20 }}>ขั้นตอนการทำงาน</div>
+          <div>
+            {STATUSES.map((step, i) => {
+              const isPast = i < currentStepIndex
+              const isCurrent = i === currentStepIndex
+              const isFuture = i > currentStepIndex
+              const isLast = i === STATUSES.length - 1
+              const sm = STATUS_MAP[step]
+
+              return (
+                <div key={step} style={{ position: 'relative', display: 'flex', gap: 15, paddingBottom: isLast ? 0 : 18 }}>
+                  {/* Vertical connector line */}
+                  {!isLast && (
+                    <div style={{
+                      position: 'absolute',
+                      left: 16,
+                      top: 34,
+                      bottom: 0,
+                      width: 2,
+                      background: '#f0f2f5',
+                      zIndex: 0,
+                    }} />
+                  )}
+                  {/* Step dot */}
+                  <div style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                    zIndex: 1,
+                    background: isPast ? '#5f7d99' : isCurrent ? '#5f7d99' : '#f0f2f5',
+                    boxShadow: isCurrent ? '0 0 0 4px rgba(95,125,153,.2)' : undefined,
+                  }}>
+                    {isPast ? (
+                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#fff' }}>check</span>
+                    ) : isCurrent ? (
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{i + 1}</span>
+                    ) : (
+                      <span style={{ fontSize: 13, color: '#9aa7b2' }}>{i + 1}</span>
+                    )}
+                  </div>
+                  {/* Step content */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 2 }}>
+                    <div>
+                      <div style={{
+                        fontSize: 14,
+                        fontWeight: (isPast || isCurrent) ? 600 : undefined,
+                        color: (isPast || isCurrent) ? '#2f3b45' : '#9aa7b2',
+                      }}>
+                        {LABELS[i]}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#9aa7b2', marginTop: 1 }}>{THAI_LABELS[i]}</div>
+                    </div>
+                    {isCurrent && (
+                      <span style={{
+                        display: 'inline-flex',
+                        padding: '3px 10px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: sm.bg,
+                        color: sm.color,
+                        flexShrink: 0,
+                      }}>
+                        {sm.label}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Info Grid */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-        {/* Left Info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={card}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>รายละเอียด</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-              {[
-                { label: 'ลูกค้า', value: project.customer?.name || '-', icon: 'person' },
-                { label: 'ประเภทงาน', value: project.type || '-', icon: 'palette' },
-                { label: 'กำหนดส่ง', value: project.dueDate || '-', icon: 'calendar_today' },
-                { label: 'ผู้รับผิดชอบ', value: project.assignee || '-', icon: 'manage_accounts' },
-                { label: 'วันที่เริ่ม', value: project.startDate || '-', icon: 'play_circle' },
-                { label: 'จำนวนรอบแก้', value: `${project.revisions} รอบ`, icon: 'refresh' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#7a8893', marginBottom: 4 }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 14 }}>{item.icon}</span>
-                    {item.label}
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
+      {/* File Section */}
+      <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>
+            ไฟล์งาน{' '}
+            <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>(0)</span>
           </div>
-
-          {/* Brief */}
-          {project.brief && (
-            <div style={card}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>description</span>
-                Brief
-              </div>
-              <p style={{ fontSize: 13, color: '#5f6e7a', lineHeight: 1.7, margin: 0 }}>{project.brief}</p>
-            </div>
-          )}
-
-          {/* Files */}
-          <div style={card}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9fb0bf' }}>folder_zip</span>
-              ไฟล์งาน
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0', color: '#c8d4de', gap: 8 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 48 }}>cloud_upload</span>
-              <div style={{ fontSize: 13, color: '#7a8893' }}>ยังไม่มีไฟล์</div>
-              <button style={{ marginTop: 4, padding: '8px 16px', borderRadius: 8, border: '1.5px dashed #dde3e9', background: 'transparent', color: '#5f7d99', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
-                อัพโหลดไฟล์
-              </button>
-            </div>
-          </div>
+          <button style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            height: 38,
+            padding: '0 15px',
+            borderRadius: 10,
+            background: '#5f7d99',
+            color: '#fff',
+            fontSize: 13.5,
+            fontWeight: 600,
+            cursor: 'pointer',
+            border: 'none',
+          }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>upload</span>
+            อัปโหลด
+          </button>
         </div>
-
-        {/* Right - Financial */}
-        <div style={{ width: 280, flexShrink: 0 }}>
-          <div style={card}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 18 }}>การเงิน</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ padding: '14px', background: '#f8fafc', borderRadius: 12 }}>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>มูลค่างาน</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#2f3b45' }}>{fmt(project.value)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>มัดจำที่รับแล้ว</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#3d8a64' }}>{fmt(project.deposit)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>ต้นทุน</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#e07b54' }}>{fmt(project.cost)}</div>
-              </div>
-              <div style={{ paddingTop: 14, borderTop: '1px solid #edf0f3' }}>
-                <div style={{ fontSize: 11, color: '#7a8893', marginBottom: 4 }}>กำไรโดยประมาณ</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: profit >= 0 ? '#3d8a64' : '#e05a4a' }}>
-                  {fmt(profit)}
-                </div>
-                <div style={{ fontSize: 12, color: '#7a8893', marginTop: 2 }}>Margin {profitMargin}%</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Customer Card */}
-          {project.customer && (
-            <div style={card}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>ข้อมูลลูกค้า</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#7a8893' }}>ชื่อ</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{project.customer.name}</div>
-                </div>
-                {project.customer.company && (
-                  <div>
-                    <div style={{ fontSize: 11, color: '#7a8893' }}>บริษัท</div>
-                    <div style={{ fontSize: 13, color: '#2f3b45' }}>{project.customer.company}</div>
-                  </div>
-                )}
-                {project.customer.phone && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#5f7d99' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 15 }}>call</span>
-                    {project.customer.phone}
-                  </div>
-                )}
-                {project.customer.email && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#5f7d99' }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 15 }}>mail</span>
-                    {project.customer.email}
-                  </div>
-                )}
-                <Link
-                  href={`/customers/${project.customer.id}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#5f7d99', textDecoration: 'none', fontWeight: 600, marginTop: 4 }}
-                >
-                  ดูโปรไฟล์ลูกค้า
-                  <span className="material-symbols-rounded" style={{ fontSize: 14 }}>arrow_forward</span>
-                </Link>
-              </div>
-            </div>
-          )}
+        {/* Empty state */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '34px 0' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 40, color: '#cdd6df' }}>folder_open</span>
+          <span style={{ fontSize: 13, color: '#9aa7b2' }}>ยังไม่มีไฟล์งาน · อัปโหลดได้หลังสร้างโปรเจกต์</span>
         </div>
       </div>
     </div>

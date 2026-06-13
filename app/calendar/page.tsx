@@ -21,19 +21,41 @@ const thaiMonths = [
   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
 ]
 
-const dayHeaders = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
+const thaiMonthsShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+const dayHeaders = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+
+const staticEvents: Record<string, { text: string; color: string; bg: string }[]> = {
+  '2026-06-02': [{ text: 'ส่งงาน Packaging', color: '#5f7d99', bg: '#e8eef4' }],
+  '2026-06-05': [{ text: 'ประชุม Lotus', color: '#3d8a64', bg: '#e9f3ed' }, { text: 'ส่ง Logo Draft', color: '#e0a96d', bg: '#fdf3e3' }],
+  '2026-06-09': [{ text: 'Review Design', color: '#5f7d99', bg: '#e8eef4' }],
+  '2026-06-13': [{ text: 'ส่ง CI Manual', color: '#c4593f', bg: '#fceee8' }, { text: 'ประชุมทีม', color: '#5f7d99', bg: '#e8eef4' }],
+  '2026-06-16': [{ text: 'Deadline Label', color: '#c4593f', bg: '#fceee8' }],
+  '2026-06-18': [{ text: 'นัดลูกค้า BrandX', color: '#3d8a64', bg: '#e9f3ed' }],
+  '2026-06-20': [{ text: 'ส่งสรุปเดือน', color: '#e0a96d', bg: '#fdf3e3' }],
+  '2026-06-23': [{ text: 'ประชุมพาร์ทเนอร์', color: '#5f7d99', bg: '#e8eef4' }],
+  '2026-06-25': [{ text: 'Revise Packaging', color: '#5f7d99', bg: '#e8eef4' }, { text: 'ส่ง Invoice', color: '#3d8a64', bg: '#e9f3ed' }],
+  '2026-06-30': [{ text: 'สิ้นเดือน – ปิดบัญชี', color: '#c4593f', bg: '#fceee8' }],
+}
+
+const todayEvents = [
+  { time: '09:00', title: 'ส่ง CI Manual ให้ลูกค้า', sub: 'ส่งไฟล์ PDF + Guideline ครบ' },
+  { time: '11:00', title: 'ประชุมทีม', sub: 'อัพเดตงานประจำสัปดาห์' },
+  { time: '14:30', title: 'นัด Review งาน Packaging', sub: 'ลูกค้า Lotus – รอบ 2' },
+]
 
 function toDateStr(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function getDaysInMonth(year: number, month: number): Date[] {
   const days: Date[] = []
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-  // Monday = 0
-  let startDow = firstDay.getDay()
-  startDow = startDow === 0 ? 6 : startDow - 1
+  const startDow = firstDay.getDay()
 
   for (let i = 0; i < startDow; i++) {
     const d = new Date(firstDay)
@@ -43,7 +65,6 @@ function getDaysInMonth(year: number, month: number): Date[] {
   for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
     days.push(new Date(d))
   }
-  // Fill to complete last row
   while (days.length % 7 !== 0) {
     const last = days[days.length - 1]
     const next = new Date(last)
@@ -54,14 +75,15 @@ function getDaysInMonth(year: number, month: number): Date[] {
 }
 
 export default function CalendarPage() {
-  const today = new Date()
+  const today = new Date(2026, 5, 13)
   const todayStr = toDateStr(today)
-  const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 5, 1))
   const [notes, setNotes] = useState<Record<string, CalendarNote[]>>({})
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [popupText, setPopupText] = useState('')
   const [popupPriority, setPopupPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
   const [adding, setAdding] = useState(false)
+  const [view, setView] = useState<'day' | 'week' | 'month'>('month')
 
   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`
 
@@ -113,130 +135,119 @@ export default function CalendarPage() {
 
   const days = getDaysInMonth(currentMonth.getFullYear(), currentMonth.getMonth())
   const thaiYear = currentMonth.getFullYear() + 543
-  const todayNotes = notes[todayStr] || []
   const selectedNotes = selectedDay ? (notes[selectedDay] || []) : []
 
-  function formatThaiDate(dateStr: string) {
+  function formatThaiDateShort(dateStr: string) {
+    const [y, m, d] = dateStr.split('-')
+    const thaiYearShort = String((parseInt(y) + 543) % 100).padStart(2, '0')
+    return `${parseInt(d)} ${thaiMonthsShort[parseInt(m) - 1]} ${thaiYearShort}`
+  }
+
+  function formatThaiDateLong(dateStr: string) {
     const [y, m, d] = dateStr.split('-')
     return `${parseInt(d)} ${thaiMonths[parseInt(m) - 1]} ${parseInt(y) + 543}`
   }
 
+  const allEventsForDay = (dateStr: string) => {
+    const staticEvs = staticEvents[dateStr] || []
+    const noteEvs = (notes[dateStr] || []).map(n => ({
+      text: n.text,
+      color: priorityMap[n.priority].color,
+      bg: priorityMap[n.priority].bg,
+    }))
+    return [...staticEvs, ...noteEvs]
+  }
+
   return (
-    <div>
+    <div style={{ fontFamily: "'IBM Plex Sans Thai', 'IBM Plex Sans', sans-serif" }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '16px 0 18px' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>ปฏิทินงาน</h1>
-          <p style={{ fontSize: 14, color: '#7a8893', margin: '4px 0 0' }}>บันทึกและติดตามงานรายวัน</p>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>ปฏิทินงาน</div>
+          <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>นัดหมาย กำหนดส่ง และงานสำคัญทั้งหมด</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={prevMonth} style={{
-            width: 36, height: 36, borderRadius: 10, border: '1px solid #edf0f3',
-            background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5f7d99' }}>chevron_left</span>
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45', minWidth: 160, textAlign: 'center' }}>
-            {thaiMonths[currentMonth.getMonth()]} {thaiYear}
-          </span>
-          <button onClick={nextMonth} style={{
-            width: 36, height: 36, borderRadius: 10, border: '1px solid #edf0f3',
-            background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5f7d99' }}>chevron_right</span>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div onClick={prevMonth} style={{ width: 34, height: 34, border: '1px solid #e4e8ec', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#fff' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#5b6b77' }}>chevron_left</span>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', minWidth: 128, textAlign: 'center' }}>
+              {thaiMonths[currentMonth.getMonth()]} {thaiYear}
+            </div>
+            <div onClick={nextMonth} style={{ width: 34, height: 34, border: '1px solid #e4e8ec', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#fff' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#5b6b77' }}>chevron_right</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 3, background: '#fff', border: '1px solid #e4e8ec', borderRadius: 10, padding: 3 }}>
+            {(['day', 'week', 'month'] as const).map((v, i) => {
+              const labels = ['วัน', 'สัปดาห์', 'เดือน']
+              const active = view === v
+              return (
+                <div key={v} onClick={() => setView(v)} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: active ? 600 : 400, background: active ? '#5f7d99' : 'transparent', color: active ? '#fff' : '#7a8893', cursor: 'pointer' }}>
+                  {labels[i]}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Calendar */}
-      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', overflow: 'hidden', marginBottom: 16 }}>
+      {/* Calendar grid */}
+      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 20 }}>
         {/* Day headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #edf0f3' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: 10 }}>
           {dayHeaders.map((d, i) => (
-            <div key={i} style={{
-              padding: '12px 8px',
-              textAlign: 'center',
-              fontSize: 13,
-              fontWeight: 700,
-              color: i === 6 ? '#c4593f' : '#7a8893',
-              borderRight: i < 6 ? '1px solid #edf0f3' : 'none',
-            }}>
-              {d}
-            </div>
+            <div key={i} style={{ textAlign: 'center', fontSize: 12, color: '#9aa7b2', fontWeight: 600 }}>{d}</div>
           ))}
         </div>
-
         {/* Day cells */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
           {days.map((day, i) => {
             const dateStr = toDateStr(day)
             const isCurrentMonth = day.getMonth() === currentMonth.getMonth()
             const isToday = dateStr === todayStr
-            const isSunday = day.getDay() === 0
-            const dayNotes = notes[dateStr] || []
             const isSelected = dateStr === selectedDay
+            const evs = allEventsForDay(dateStr)
 
             return (
               <div
                 key={i}
                 onClick={() => setSelectedDay(isSelected ? null : dateStr)}
                 style={{
-                  minHeight: 90,
-                  padding: '8px 6px',
-                  borderRight: (i + 1) % 7 !== 0 ? '1px solid #edf0f3' : 'none',
-                  borderBottom: i < days.length - 7 ? '1px solid #edf0f3' : 'none',
+                  minHeight: 80,
+                  padding: '8px 7px',
+                  borderRadius: 10,
                   background: isSelected ? '#f0f5fa' : 'transparent',
                   cursor: 'pointer',
                   transition: 'background 0.1s',
-                  position: 'relative',
                 }}
                 onMouseEnter={e => {
-                  if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = '#f9fafb'
+                  if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = '#f8fafb'
                 }}
                 onMouseLeave={e => {
                   if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
                 }}
               >
-                {/* Date number */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginBottom: 4,
-                }}>
+                <div style={{ marginBottom: 5 }}>
                   <span style={{
                     width: 26, height: 26, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13,
                     fontWeight: isToday ? 700 : 400,
                     background: isToday ? '#5f7d99' : 'transparent',
-                    color: isToday ? '#fff' : isSunday ? '#c4593f' : isCurrentMonth ? '#2f3b45' : '#c5cdd4',
+                    color: isToday ? '#fff' : isCurrentMonth ? '#2f3b45' : '#c5cdd4',
                   }}>
                     {day.getDate()}
                   </span>
                 </div>
-
-                {/* Notes chips */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {dayNotes.slice(0, 3).map(note => {
-                    const p = priorityMap[note.priority] || priorityMap.normal
-                    return (
-                      <div key={note.id} style={{
-                        background: p.bg,
-                        color: p.color,
-                        borderRadius: 4,
-                        padding: '2px 5px',
-                        fontSize: 10,
-                        fontWeight: 500,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {note.text}
-                      </div>
-                    )
-                  })}
-                  {dayNotes.length > 3 && (
-                    <div style={{ fontSize: 10, color: '#9aa7b2', paddingLeft: 4 }}>+{dayNotes.length - 3} อื่น</div>
+                  {evs.slice(0, 2).map((ev, j) => (
+                    <div key={j} style={{ background: ev.bg, color: ev.color, borderRadius: 4, padding: '2px 5px', fontSize: 10, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ev.text}
+                    </div>
+                  ))}
+                  {evs.length > 2 && (
+                    <div style={{ fontSize: 10, color: '#9aa7b2', paddingLeft: 4 }}>+{evs.length - 2} อื่น</div>
                   )}
                 </div>
               </div>
@@ -245,175 +256,106 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Note editor popup */}
-      {selectedDay && (
-        <div style={{
-          background: '#fff',
-          borderRadius: 18,
-          border: '1px solid #edf0f3',
-          padding: 22,
-          marginBottom: 16,
-          position: 'relative',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45', margin: 0 }}>
-                {formatThaiDate(selectedDay)}
-              </h3>
-              <p style={{ fontSize: 13, color: '#7a8893', margin: '3px 0 0' }}>บันทึกโน้ตประจำวัน</p>
-            </div>
-            <button onClick={() => setSelectedDay(null)} style={{
-              width: 32, height: 32, borderRadius: 8, border: '1px solid #edf0f3',
-              background: '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#7a8893' }}>close</span>
-            </button>
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 13, fontSize: 12.5, color: '#9aa7b2' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#a9b6c0' }}>touch_app</span>
+        คลิกที่ช่องวันเพื่อเพิ่มหรือแก้ไขโน้ต
+      </div>
 
-          {/* Existing notes */}
-          {selectedNotes.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#9aa7b2', marginBottom: 8 }}>โน้ตที่บันทึกไว้</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {selectedNotes.map(note => {
-                  const p = priorityMap[note.priority] || priorityMap.normal
-                  return (
-                    <div key={note.id} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      background: p.bg,
-                      borderRadius: 10,
-                      border: `1px solid ${p.color}22`,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{
-                          background: p.color, color: '#fff',
-                          borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600,
-                        }}>
-                          {p.label}
-                        </span>
-                        <span style={{ fontSize: 13, color: '#2f3b45' }}>{note.text}</span>
+      {/* Today appointments */}
+      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18, maxWidth: 640 }}>
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 16 }}>
+          รายการนัดหมายวันนี้ · {formatThaiDateShort(todayStr)}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+          {todayEvents.map((e, i) => (
+            <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", width: 52, flexShrink: 0 }}>{e.time}</div>
+              <div style={{ borderLeft: '2px solid #cdd9e3', paddingLeft: 13, flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#2f3b45' }}>{e.title}</div>
+                <div style={{ fontSize: 12.5, color: '#9aa7b2', marginTop: 1 }}>{e.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Day popup modal */}
+      {selectedDay && (
+        <div
+          onClick={() => setSelectedDay(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.32)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: 420, maxWidth: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 24px 60px rgba(30,45,60,.28)', overflow: 'hidden' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f0f2f5' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 22, color: '#5f7d99' }}>event_note</span>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45' }}>{formatThaiDateLong(selectedDay)}</div>
+              </div>
+              <div onClick={() => setSelectedDay(null)} style={{ width: 32, height: 32, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>close</span>
+              </div>
+            </div>
+            <div style={{ padding: '20px 22px' }}>
+              <div style={{ fontSize: 12.5, color: '#7a8893', fontWeight: 600, marginBottom: 10 }}>โน้ตของวันนี้</div>
+
+              {selectedNotes.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+                  {selectedNotes.map(note => {
+                    const p = priorityMap[note.priority] || priorityMap.normal
+                    return (
+                      <div key={note.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <div style={{ flex: 1, background: p.bg, color: p.color, borderRadius: 8, padding: '8px 12px', fontSize: 13, fontWeight: 500 }}>{note.text}</div>
+                        <div onClick={() => deleteNote(note.id)} style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#c3cdd6' }}>delete</span>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => deleteNote(note.id)}
-                        style={{
-                          width: 28, height: 28, borderRadius: 6, border: 'none',
-                          background: 'rgba(196,89,63,0.1)', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                      >
-                        <span className="material-symbols-rounded" style={{ fontSize: 14, color: '#c4593f' }}>delete</span>
-                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: 14, borderRadius: 10, background: '#fafbfc', color: '#9aa7b2', fontSize: 13, marginBottom: 18 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#cdd6df' }}>inbox</span>
+                  ยังไม่มีโน้ตในวันนี้
+                </div>
+              )}
+
+              <div style={{ height: 1, background: '#f0f2f5', marginBottom: 18 }}></div>
+              <div style={{ fontSize: 12.5, color: '#7a8893', fontWeight: 600, marginBottom: 9 }}>ลำดับความสำคัญ (สีโน้ต)</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                {(Object.entries(priorityMap) as [string, typeof priorityMap.normal][]).map(([key, val]) => {
+                  const active = popupPriority === key
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => setPopupPriority(key as 'low' | 'normal' | 'high' | 'urgent')}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${active ? val.color : '#e4e8ec'}`, background: active ? val.bg : '#fff', cursor: 'pointer', fontSize: 13 }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: val.color, display: 'inline-block' }}></span>
+                      <span style={{ color: active ? val.color : '#7a8893', fontWeight: active ? 600 : 400 }}>{val.label}</span>
                     </div>
                   )
                 })}
               </div>
-            </div>
-          )}
-
-          {/* Add new note */}
-          <div style={{ borderTop: selectedNotes.length > 0 ? '1px solid #edf0f3' : 'none', paddingTop: selectedNotes.length > 0 ? 16 : 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#9aa7b2', marginBottom: 10 }}>เพิ่มโน้ตใหม่</div>
-            <input
-              type="text"
-              placeholder="บันทึกงาน นัดหมาย หรือข้อความ..."
-              value={popupText}
-              onChange={e => setPopupText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addNote()}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #edf0f3',
-                borderRadius: 10,
-                fontSize: 14,
-                color: '#2f3b45',
-                background: '#f9fafb',
-                outline: 'none',
-                marginBottom: 12,
-                boxSizing: 'border-box',
-                fontFamily: 'inherit',
-              }}
-            />
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: '#9aa7b2', marginRight: 4 }}>ระดับ:</span>
-              {(Object.entries(priorityMap) as [string, { label: string; color: string; bg: string }][]).map(([key, val]) => (
-                <button
-                  key={key}
-                  onClick={() => setPopupPriority(key as 'low' | 'normal' | 'high' | 'urgent')}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    border: popupPriority === key ? `2px solid ${val.color}` : '1.5px solid #edf0f3',
-                    background: popupPriority === key ? val.bg : '#f9fafb',
-                    color: popupPriority === key ? val.color : '#7a8893',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {val.label}
-                </button>
-              ))}
-              <button
-                onClick={addNote}
-                disabled={adding || !popupText.trim()}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: 10,
-                  background: !popupText.trim() ? '#d0d8e0' : '#5f7d99',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: !popupText.trim() ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: 16 }}>add</span>
-                เพิ่มโน้ต
-              </button>
+              <div style={{ display: 'flex', gap: 9 }}>
+                <input
+                  value={popupText}
+                  onChange={e => setPopupText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addNote()}
+                  placeholder="พิมพ์โน้ต เช่น 10:00 ประชุมลูกค้า..."
+                  style={{ flex: 1, border: '1px solid #e4e8ec', borderRadius: 10, height: 42, padding: '0 14px', fontFamily: 'inherit', fontSize: 14, color: '#2f3b45', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                />
+                <div onClick={addNote} style={{ display: 'flex', alignItems: 'center', gap: 5, height: 42, padding: '0 16px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 19 }}>add</span>
+                  เพิ่ม
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Today panel */}
-      <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5f7d99' }}>today</span>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: 0 }}>
-            วันนี้ — {formatThaiDate(todayStr)}
-          </h3>
-        </div>
-        {todayNotes.length === 0 ? (
-          <div style={{ color: '#9aa7b2', fontSize: 13 }}>ยังไม่มีโน้ตสำหรับวันนี้</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {todayNotes.map(note => {
-              const p = priorityMap[note.priority] || priorityMap.normal
-              return (
-                <div key={note.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', background: p.bg, borderRadius: 10,
-                }}>
-                  <span style={{
-                    background: p.color, color: '#fff',
-                    borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600,
-                  }}>{p.label}</span>
-                  <span style={{ fontSize: 13, color: '#2f3b45' }}>{note.text}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
