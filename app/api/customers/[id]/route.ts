@@ -14,11 +14,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
-  const { contact, lineId, ...rest } = body
-  const customer = await prisma.customer.update({
-    where: { id },
-    data: { ...rest, line: lineId ?? body.line }
-  })
+  const customer = await prisma.customer.update({ where: { id }, data: body })
   return NextResponse.json(customer)
 }
 

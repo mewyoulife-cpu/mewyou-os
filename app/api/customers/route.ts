@@ -10,16 +10,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json()
-    const { contact, lineId, ...rest } = body
-    const customer = await prisma.customer.create({
-      data: { ...rest, line: lineId ?? body.line }
-    })
-    return NextResponse.json(customer)
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    console.error('POST /api/customers error:', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
-  }
+  const body = await req.json()
+  const customer = await prisma.customer.create({ data: body })
+  return NextResponse.json(customer)
 }

@@ -10,6 +10,7 @@ model Customer {
   id        String   @id @default(cuid())
   name      String
   company   String?
+  contact   String?
   phone     String?
   email     String?
   line      String?

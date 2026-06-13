@@ -67,7 +67,7 @@ export default function NewCustomerPage() {
     contact: '',
     phone: '',
     email: '',
-    lineId: '',
+    line: '',
     address: '',
     taxId: '',
     notes: '',
@@ -177,7 +177,7 @@ export default function NewCustomerPage() {
               </div>
               <div>
                 <label style={labelStyle}>Line ID</label>
-                <input style={inputStyle} placeholder="@lineid" value={form.lineId} onChange={e => handleChange('lineId', e.target.value)} />
+                <input style={inputStyle} placeholder="@lineid" value={form.line} onChange={e => handleChange('line', e.target.value)} />
               </div>
               <div>
                 <label style={labelStyle}>ที่อยู่</label>
