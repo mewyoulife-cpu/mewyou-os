@@ -144,7 +144,7 @@ export default async function DashboardPage() {
   const sevenDaysAhead = new Date(today)
   sevenDaysAhead.setDate(today.getDate() + 7)
 
-  const WAITING_DESIGN_STATUSES = ['lead', 'brief', 'quotation', 'payment']
+  const WAITING_DESIGN_STATUSES = ['design']
 
   const [
     projectCount,
