@@ -12,13 +12,35 @@ export async function GET(req: Request) {
   return NextResponse.json(docs)
 }
 
+const STRING_FIELDS = [
+  'type', 'status', 'quotationId', 'refInvoiceId', 'customerId',
+  'clientName', 'clientAddress', 'clientTaxId', 'clientContact', 'clientPhone',
+  'payMethod', 'payDate', 'payRef', 'slipUrl', 'issueDate', 'dueDate',
+  'delivery', 'notes',
+] as const
+
 export async function POST(req: Request) {
   const body = await req.json()
   const prefix = body.type === 'invoice' ? 'INV' : body.type === 'receipt' ? 'REC' : 'TAX'
   const count = await prisma.document.count({ where: { type: body.type } })
   const no = `${prefix}-${new Date().getFullYear() + 543}-${String(count + 1).padStart(4, '0')}`
-  const doc = await prisma.document.create({
-    data: { ...body, no, items: typeof body.items === 'string' ? body.items : JSON.stringify(body.items || []) }
-  })
-  return NextResponse.json(doc)
+
+  // Build a whitelisted payload so unknown keys / empty foreign keys can't break the insert.
+  const data: Record<string, unknown> = {
+    no,
+    items: typeof body.items === 'string' ? body.items : JSON.stringify(body.items || []),
+    discount: Number(body.discount) || 0,
+    vatEnabled: body.vatEnabled !== false,
+    bankIndex: body.bankIndex != null ? Number(body.bankIndex) : null,
+  }
+  for (const f of STRING_FIELDS) {
+    if (body[f] !== undefined) data[f] = body[f] === '' ? null : body[f]
+  }
+
+  try {
+    const doc = await prisma.document.create({ data: data as Parameters<typeof prisma.document.create>[0]['data'] })
+    return NextResponse.json(doc)
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'create failed' }, { status: 400 })
+  }
 }
