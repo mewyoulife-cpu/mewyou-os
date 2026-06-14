@@ -145,4 +145,6 @@ model Settings {
   phone       String @default("")
   email       String @default("")
   logo        String?
+  ownerName   String @default("Mewyou Studio")
+  position    String @default("Owner · Admin")
 }
