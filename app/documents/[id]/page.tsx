@@ -226,7 +226,7 @@ export default function DocumentDetailPage() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
-            onClick={() => router.push(`/documents/new?type=${document.type}`)}
+            onClick={() => router.push(`/documents/${id}/edit`)}
             style={{ background: '#f0f2f5', color: '#5f7d99', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>edit</span>
