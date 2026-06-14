@@ -103,6 +103,7 @@ export default function DocumentDetailPage() {
   const [document, setDocument] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -142,6 +143,19 @@ export default function DocumentDetailPage() {
     const data = await res.json()
     setDocument(data)
     setUpdating(false)
+  }
+
+  async function handleDelete() {
+    if (!document) return
+    if (!confirm(`ต้องการลบ ${document.no} ใช่หรือไม่? การลบไม่สามารถย้อนกลับได้`)) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/documents/${id}`, { method: 'DELETE' })
+      router.push('/documents')
+    } catch {
+      setDeleting(false)
+      alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
   }
 
   if (loading) {
@@ -259,6 +273,14 @@ export default function DocumentDetailPage() {
               บันทึกชำระแล้ว
             </button>
           )}
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ background: '#fff', color: '#c4593f', border: '1px solid #f0d4cc', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: deleting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>delete</span>
+            {deleting ? 'กำลังลบ...' : 'ลบ'}
+          </button>
         </div>
       </div>
 
