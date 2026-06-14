@@ -11,10 +11,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
-  const doc = await prisma.document.update({
-    where: { id },
-    data: { ...body, items: typeof body.items === 'string' ? body.items : JSON.stringify(body.items || []) }
-  })
+  const data = { ...body }
+  if (body.items !== undefined) {
+    data.items = typeof body.items === 'string' ? body.items : JSON.stringify(body.items)
+  }
+  const doc = await prisma.document.update({ where: { id }, data })
   return NextResponse.json(doc)
 }
 

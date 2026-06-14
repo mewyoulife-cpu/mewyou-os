@@ -151,9 +151,22 @@ export default function DocumentDetailPage() {
     <div>
       <style>{`
         @media print {
+          @page { size: A4; margin: 12mm; }
+          html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
           .no-print { display: none !important; }
-          body { background: #fff; }
-          .print-doc { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; }
+          body * { visibility: hidden !important; }
+          .print-doc, .print-doc * { visibility: visible !important; }
+          .print-doc {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
         }
       `}</style>
 
@@ -181,7 +194,11 @@ export default function DocumentDetailPage() {
             แก้ไข
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const prev = window.document.title
+              window.document.title = document.no
+              setTimeout(() => { window.print(); window.document.title = prev }, 60)
+            }}
             style={{ background: '#e8eef4', color: '#5f7d99', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>print</span>

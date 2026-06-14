@@ -141,25 +141,16 @@ export default function QuotationDetailPage() {
   }
 
   async function handleExportPdf() {
-    const el = docRef.current
-    if (!el || !quotation) return
+    if (!quotation) return
+    const prevTitle = document.title
+    document.title = quotation.no
     setExporting(true)
-    try {
-      const html2pdf = (await import('html2pdf.js')).default
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename: `${quotation.no}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-        })
-        .from(el)
-        .save()
-    } finally {
+    // Give the title change a tick, then open the browser's print-to-PDF (A4, vector, exact layout)
+    setTimeout(() => {
+      window.print()
+      document.title = prevTitle
       setExporting(false)
-    }
+    }, 60)
   }
 
   if (loading) {
@@ -206,9 +197,22 @@ export default function QuotationDetailPage() {
     <div>
       <style>{`
         @media print {
+          @page { size: A4; margin: 12mm; }
+          html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
           .no-print { display: none !important; }
-          body { background: #fff; }
-          .print-doc { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; border: none !important; }
+          body * { visibility: hidden !important; }
+          .print-doc, .print-doc * { visibility: visible !important; }
+          .print-doc {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
         }
       `}</style>
 

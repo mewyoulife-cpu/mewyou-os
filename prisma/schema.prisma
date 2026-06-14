@@ -98,6 +98,13 @@ model Document {
   issueDate    String
   dueDate      String?
   delivery     String?
+  txEmailSent  Boolean    @default(false)
+  txPostSent   Boolean    @default(false)
+  txCarrier    String?
+  txTracking   String?
+  txSlipUrl    String?
+  txSentBy     String?
+  txSentAt     String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
