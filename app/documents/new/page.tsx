@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useRef } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -12,6 +12,7 @@ interface Customer {
   email?: string
   address?: string
   taxId?: string
+  contact?: string
 }
 
 interface Quotation {
@@ -27,6 +28,20 @@ interface Quotation {
   vatEnabled: boolean
 }
 
+interface DocumentRef {
+  id: string
+  no: string
+  clientName?: string
+}
+
+interface BankAccount {
+  id: string
+  bank: string
+  accountNo: string
+  name: string
+  isDefault?: boolean
+}
+
 interface Item {
   name: string
   detail: string
@@ -35,22 +50,41 @@ interface Item {
   price: number
 }
 
-const typeConfig = {
-  invoice: { label: 'ใบแจ้งหนี้', labelEn: 'INVOICE', icon: 'receipt_long' },
-  receipt: { label: 'ใบเสร็จรับเงิน', labelEn: 'RECEIPT', icon: 'check_circle' },
-  taxinvoice: { label: 'ใบกำกับภาษี', labelEn: 'TAX INVOICE', icon: 'gavel' },
+type DocType = 'invoice' | 'receipt' | 'taxinvoice'
+
+const typeConfig: Record<DocType, { label: string; prefix: string; icon: string; bg: string; color: string }> = {
+  invoice: { label: 'ใบแจ้งหนี้', prefix: 'INV', icon: 'receipt_long', bg: '#e8f1f9', color: '#6b96c2' },
+  receipt: { label: 'ใบเสร็จรับเงิน', prefix: 'REC', icon: 'payments', bg: '#e9f3ed', color: '#3d8a64' },
+  taxinvoice: { label: 'ใบกำกับภาษี', prefix: 'TAX', icon: 'article', bg: '#f5ece3', color: '#9c7c5a' },
 }
 
-const PAY_METHODS = ['โอนเงิน', 'เงินสด', 'เช็ค', 'บัตรเครดิต']
-const BANKS = [
-  { name: 'ธ.กสิกรไทย (KBank)' },
-  { name: 'ธ.ไทยพาณิชย์ (SCB)' },
-  { name: 'ธ.กรุงเทพ (BBL)' },
-  { name: 'พร้อมเพย์' },
+const PAY_METHODS = ['โอนเงิน', 'เงินสด', 'บัตรเครดิต', 'เช็ค']
+
+const FALLBACK_BANKS: BankAccount[] = [
+  { id: 'kbank', bank: 'ธนาคารกสิกรไทย', accountNo: '041-8-63463-4', name: 'ออมทรัพย์' },
+  { id: 'scb', bank: 'ธนาคารไทยพาณิชย์', accountNo: '264-2-51789-0', name: 'ออมทรัพย์' },
+  { id: 'bbl', bank: 'ธนาคารกรุงเทพ', accountNo: '195-0-44217-6', name: 'กระแสรายวัน' },
+  { id: 'promptpay', bank: 'พร้อมเพย์', accountNo: '0-1055-60143-09-9', name: 'PromptPay' },
 ]
 
+function bankBrand(name: string): { color: string; icon: string } {
+  if (name.includes('กสิกร')) return { color: '#1aa84a', icon: 'eco' }
+  if (name.includes('ไทยพาณิชย์')) return { color: '#4e2a84', icon: 'savings' }
+  if (name.includes('กรุงเทพ')) return { color: '#1e4598', icon: 'account_balance' }
+  if (name.includes('พร้อมเพย์')) return { color: '#0a3a6b', icon: 'qr_code_2' }
+  return { color: '#5f7d99', icon: 'account_balance' }
+}
+
 function fmt(n: number) {
-  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (Math.floor(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function thaiToday() {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = d.getFullYear() + 543
+  return `${dd}/${mm}/${yy}`
 }
 
 function calcSummary(items: Item[], discount: number, vatEnabled: boolean) {
@@ -60,17 +94,61 @@ function calcSummary(items: Item[], discount: number, vatEnabled: boolean) {
   return { sub, vat, total: afterDiscount + vat }
 }
 
+function compressImage(file: File, maxWidth: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('no ctx')); return }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.8))
+      }
+      img.onerror = reject
+      img.src = String(reader.result)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+const qInput: React.CSSProperties = {
+  width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38,
+  padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45',
+  outline: 'none', background: '#fff', boxSizing: 'border-box',
+}
+
+const cardStyle: React.CSSProperties = {
+  background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 24,
+}
+
+const cardTitle: React.CSSProperties = {
+  fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 16,
+}
+
+const fieldLabel: React.CSSProperties = {
+  fontSize: 12.5, color: '#7a8893', marginBottom: 6,
+}
+
 function NewDocumentForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const docType = (searchParams.get('type') || 'invoice') as 'invoice' | 'receipt' | 'taxinvoice'
+  const docType = ((searchParams.get('type') as DocType) || 'invoice') as DocType
   const cfg = typeConfig[docType] || typeConfig.invoice
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [quotations, setQuotations] = useState<Quotation[]>([])
+  const [refInvoices, setRefInvoices] = useState<DocumentRef[]>([])
+  const [banks, setBanks] = useState<BankAccount[]>([])
+  const [docCount, setDocCount] = useState(0)
   const [saving, setSaving] = useState(false)
 
-  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const today = thaiToday()
 
   const [form, setForm] = useState({
     customerId: '',
@@ -85,7 +163,8 @@ function NewDocumentForm() {
     payMethod: 'โอนเงิน',
     payDate: today,
     payRef: '',
-    delivery: '',
+    slipUrl: '',
+    status: docType === 'receipt' ? 'paid' : 'draft',
     clientName: '',
     clientAddress: '',
     clientTaxId: '',
@@ -95,29 +174,41 @@ function NewDocumentForm() {
   })
 
   useEffect(() => {
-    fetch('/api/customers').then(r => r.json()).then(data => setCustomers(Array.isArray(data) ? data : []))
-    fetch('/api/quotations').then(r => r.json()).then(data => setQuotations(Array.isArray(data) ? data : []))
-  }, [])
+    fetch('/api/customers').then(r => r.json()).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/banks').then(r => r.json()).then(d => setBanks(Array.isArray(d) && d.length ? d : [])).catch(() => {})
+    if (docType === 'receipt') {
+      fetch('/api/documents?type=invoice').then(r => r.json()).then(d => setRefInvoices(Array.isArray(d) ? d : [])).catch(() => {})
+    } else {
+      fetch('/api/quotations').then(r => r.json()).then(d => setQuotations(Array.isArray(d) ? d : [])).catch(() => {})
+    }
+    fetch(`/api/documents?type=${docType}`).then(r => r.json()).then(d => setDocCount(Array.isArray(d) ? d.length : 0)).catch(() => {})
+  }, [docType])
+
+  const bankList = banks.length ? banks : FALLBACK_BANKS
+  const dcNo = `${cfg.prefix}-${new Date().getFullYear() + 543}-${String(docCount + 1).padStart(4, '0')}`
+
+  const dueLabel = docType === 'invoice' ? 'ครบกำหนดชำระ' : docType === 'receipt' ? 'วันที่รับชำระ' : 'วันที่'
+  const refLabel = docType === 'receipt' ? 'อ้างอิงใบแจ้งหนี้' : 'อ้างอิงใบเสนอราคา'
 
   function setField(key: string, value: unknown) {
     setForm(f => ({ ...f, [key]: value }))
   }
 
   function handleCustomerChange(id: string) {
-    const c = customers.find(c => c.id === id)
+    const c = customers.find(x => x.id === id)
     setForm(f => ({
       ...f,
       customerId: id,
       clientName: c?.company || c?.name || '',
       clientAddress: c?.address || '',
       clientTaxId: c?.taxId || '',
-      clientContact: c?.name || '',
+      clientContact: c?.contact || c?.name || '',
       clientPhone: c?.phone || '',
     }))
   }
 
   function handleQuotationChange(id: string) {
-    const q = quotations.find(q => q.id === id)
+    const q = quotations.find(x => x.id === id)
     if (!q) { setField('quotationId', id); return }
     let items: Item[] = []
     try { items = typeof q.items === 'string' ? JSON.parse(q.items) : q.items } catch {}
@@ -142,24 +233,57 @@ function NewDocumentForm() {
       return { ...f, items }
     })
   }
-
   function addItem() {
     setForm(f => ({ ...f, items: [...f.items, { name: '', detail: '', qty: 1, unit: 'งาน', price: 0 }] }))
   }
-
   function removeItem(idx: number) {
-    setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))
+    setForm(f => ({ ...f, items: f.items.length > 1 ? f.items.filter((_, i) => i !== idx) : f.items }))
+  }
+
+  async function handleSlipFile(file: File | undefined) {
+    if (!file) return
+    try {
+      const url = await compressImage(file, 700)
+      setField('slipUrl', url)
+    } catch {}
   }
 
   const { sub, vat, total } = calcSummary(form.items, form.discount, form.vatEnabled)
+  const bank = bankList[form.bankIndex] || bankList[0]
+  const brand = bankBrand(bank?.bank || '')
+  const showBankCard = docType === 'invoice' || docType === 'taxinvoice'
+  const incomplete = !form.customerId || !form.items.some(i => i.name.trim())
 
-  async function handleSave(status: 'draft' | 'sent', dest: 'list' | 'detail' = 'detail') {
+  async function handleSave(status: string, dest: 'list' | 'detail' = 'detail') {
+    if (saving) return
     setSaving(true)
     try {
       const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, type: docType, status }),
+        body: JSON.stringify({
+          customerId: form.customerId || null,
+          quotationId: docType === 'receipt' ? null : (form.quotationId || null),
+          refInvoiceId: docType === 'receipt' ? (form.refInvoiceId || null) : null,
+          type: docType,
+          status,
+          issueDate: form.issueDate,
+          dueDate: form.dueDate || null,
+          items: form.items,
+          discount: form.discount || 0,
+          vatEnabled: form.vatEnabled,
+          bankIndex: form.bankIndex,
+          payMethod: form.payMethod || null,
+          payDate: form.payDate || null,
+          payRef: form.payRef || null,
+          slipUrl: form.slipUrl || null,
+          clientName: form.clientName || null,
+          clientAddress: form.clientAddress || null,
+          clientTaxId: form.clientTaxId || null,
+          clientContact: form.clientContact || null,
+          clientPhone: form.clientPhone || null,
+          notes: form.notes || null,
+        }),
       })
       const data = await res.json()
       router.push(dest === 'list' ? '/documents' : `/documents/${data.id}`)
@@ -169,338 +293,256 @@ function NewDocumentForm() {
     }
   }
 
-  const cardStyle = { background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginBottom: 16 }
-  const inputStyle = { width: '100%', padding: '9px 12px', border: '1px solid #e0e5ea', borderRadius: 10, fontSize: 14, color: '#2f3b45', background: '#fff', outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit' }
-  const labelStyle = { fontSize: 12, fontWeight: 600 as const, color: '#7a8893', display: 'block' as const, marginBottom: 5 }
+  const headerBtn: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px',
+    border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77',
+    fontWeight: 500, cursor: 'pointer', background: '#fff',
+  }
 
-  const refQuotation = quotations.find(q => q.id === form.quotationId)
+  const toggleTrack = (on: boolean): React.CSSProperties => ({
+    width: 42, height: 24, borderRadius: 12, background: on ? '#5f7d99' : '#d4dce2',
+    position: 'relative', cursor: 'pointer', transition: 'background .15s', flexShrink: 0,
+  })
+  const toggleKnob = (on: boolean): React.CSSProperties => ({
+    position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%',
+    background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,.2)',
+  })
+
+  const chipStyle = (active: boolean): React.CSSProperties => ({
+    padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+    border: `2px solid ${active ? '#5f7d99' : '#edf0f3'}`, background: active ? '#e8eef4' : '#fff',
+    color: active ? '#5f7d99' : '#7a8893',
+  })
 
   return (
     <div>
+      {/* Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#9aa7b2', margin: '16px 0 6px' }}>
+        <Link href="/documents" style={{ color: '#9aa7b2', textDecoration: 'none' }}>เอกสารทั้งหมด</Link>
+        <span className="material-symbols-rounded" style={{ fontSize: 16 }}>chevron_right</span>
+        <span style={{ color: '#5b6b77', fontWeight: 500 }}>สร้าง{cfg.label}</span>
+      </div>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>สร้าง{cfg.label}</h1>
-          <p style={{ fontSize: 14, color: '#7a8893', margin: '4px 0 0' }}>{cfg.labelEn}</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '0 0 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: cfg.bg, color: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 22 }}>{cfg.icon}</span>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#2f3b45' }}>สร้าง{cfg.label}</div>
+            <div style={{ fontSize: 13, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{dcNo}</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={() => router.push('/documents')}
-            style={{ background: '#f0f2f5', color: '#5f7d99', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            ยกเลิก
-          </button>
-          <button
-            onClick={() => handleSave('draft', 'detail')}
-            disabled={saving}
-            style={{ background: '#e8f1f9', color: '#6b96c2', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>
-            ดูตัวอย่าง
-          </button>
-          <button
-            onClick={() => handleSave('draft', 'list')}
-            disabled={saving}
-            style={{ background: '#edf0f3', color: '#5f7d99', border: '1px solid #d0d8e0', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            บันทึกร่าง
-          </button>
-          <button
-            onClick={() => handleSave('sent', 'detail')}
-            disabled={saving}
-            style={{ background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>send</span>
-            บันทึกและส่ง
-          </button>
+        <div style={{ display: 'flex', gap: 9 }}>
+          <div onClick={() => router.push('/documents')} style={headerBtn}>ยกเลิก</div>
+          <div onClick={() => handleSave('draft', 'detail')} style={headerBtn}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>พรีวิวเอกสาร
+          </div>
+          <div onClick={() => handleSave(form.status, 'detail')} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 18px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)', opacity: saving ? 0.7 : 1 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>check</span>{saving ? 'กำลังบันทึก...' : 'บันทึกเอกสาร'}
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {/* Left column */}
-        <div style={{ flex: '1.7', minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* LEFT */}
+        <div style={{ flex: '1.7 1 460px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           {/* ข้อมูลทั่วไป */}
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>ข้อมูลทั่วไป</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ลูกค้า</label>
-                <select value={form.customerId} onChange={e => handleCustomerChange(e.target.value)} style={inputStyle}>
-                  <option value="">-- เลือกลูกค้า --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>
-                  ))}
+            <div style={cardTitle}>ข้อมูลทั่วไป</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={fieldLabel}>ลูกค้า <span style={{ color: '#c4593f' }}>*</span></div>
+                <select value={form.customerId} onChange={e => handleCustomerChange(e.target.value)} style={qInput}>
+                  <option value="">— เลือกลูกค้า —</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>)}
                 </select>
               </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={fieldLabel}>{refLabel}</div>
+                {docType === 'receipt' ? (
+                  <select value={form.refInvoiceId} onChange={e => setField('refInvoiceId', e.target.value)} style={qInput}>
+                    <option value="">— ไม่ระบุ —</option>
+                    {refInvoices.map(d => <option key={d.id} value={d.id}>{d.no} · {d.clientName || '—'}</option>)}
+                  </select>
+                ) : (
+                  <select value={form.quotationId} onChange={e => handleQuotationChange(e.target.value)} style={qInput}>
+                    <option value="">— ไม่ระบุ —</option>
+                    {quotations.map(q => <option key={q.id} value={q.id}>{q.no} · {q.clientName || '—'}</option>)}
+                  </select>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 14 }}>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={fieldLabel}>วันที่ออก</div>
+                <input type="date" value={form.issueDate} onChange={e => setField('issueDate', e.target.value)} style={qInput} />
+              </div>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={fieldLabel}>{dueLabel}</div>
+                <input type="date" value={form.dueDate} onChange={e => setField('dueDate', e.target.value)} style={qInput} />
+              </div>
+              <div style={{ flex: 1, minWidth: 150 }}>
+                <div style={fieldLabel}>สถานะ</div>
+                <select value={form.status} onChange={e => setField('status', e.target.value)} style={qInput}>
+                  <option value="draft">ร่าง</option>
+                  <option value="sent">ส่งแล้ว</option>
+                  <option value="paid">ชำระแล้ว</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-              {/* Invoice: ref quotation */}
-              {docType === 'invoice' && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>อ้างอิงใบเสนอราคา (ถ้ามี)</label>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <select value={form.quotationId} onChange={e => handleQuotationChange(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-                      <option value="">-- เลือกใบเสนอราคา --</option>
-                      {quotations.map(q => (
-                        <option key={q.id} value={q.id}>{q.no} — {q.clientName || '—'}</option>
-                      ))}
-                    </select>
-                    {refQuotation && (
-                      <Link href={`/quotation/${form.quotationId}`} target="_blank" style={{ color: '#5f7d99', fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: 16 }}>open_in_new</span>
-                        {refQuotation.no}
-                      </Link>
-                    )}
+          {/* ข้อมูลการรับชำระเงิน (receipt only) */}
+          {docType === 'receipt' && (
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5f9b78' }}>payments</span>
+                <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ข้อมูลการรับชำระเงิน</div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ ...fieldLabel, marginBottom: 9 }}>วิธีชำระเงิน</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {PAY_METHODS.map(m => (
+                    <div key={m} onClick={() => setField('payMethod', m)} style={chipStyle(form.payMethod === m)}>{m}</div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={fieldLabel}>วันที่รับชำระ</div>
+                  <input type="date" value={form.payDate} onChange={e => setField('payDate', e.target.value)} style={qInput} />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={fieldLabel}>อ้างอิงการชำระ / เลขที่โอน</div>
+                  <input value={form.payRef} onChange={e => setField('payRef', e.target.value)} placeholder="เช่น เลขอ้างอิงสลิป, เลขเช็ค" style={qInput} />
+                </div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <div style={{ ...fieldLabel, marginBottom: 9 }}>สลิปการโอนเงิน</div>
+                {!form.slipUrl ? (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 11, padding: 16, border: '1.5px dashed #c9d7cf', borderRadius: 11, cursor: 'pointer', background: '#f7faf8' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 26, color: '#5f9b78' }}>add_photo_alternate</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#3d6a52' }}>แนบสลิปการโอนเงิน</div>
+                      <div style={{ fontSize: 12, color: '#8aa698' }}>รองรับ JPG, PNG</div>
+                    </div>
+                    <input type="file" accept="image/*" onChange={e => handleSlipFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                  </label>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 13, border: '1px solid #d6e7dd', borderRadius: 11, background: '#f7faf8' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={form.slipUrl} alt="slip" style={{ width: 48, height: 48, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3d8a64', fontWeight: 600 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check_circle</span>แนบสลิปแล้ว
+                      </div>
+                    </div>
+                    <div onClick={() => setField('slipUrl', '')} style={{ width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* Receipt: ref invoice */}
-              {docType === 'receipt' && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>อ้างอิงใบแจ้งหนี้</label>
-                  <input value={form.refInvoiceId} onChange={e => setField('refInvoiceId', e.target.value)} style={inputStyle} placeholder="เลขที่ใบแจ้งหนี้" />
-                </div>
-              )}
-
-              {/* Tax Invoice: ref invoice */}
-              {docType === 'taxinvoice' && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>อ้างอิงใบแจ้งหนี้</label>
-                  <input value={form.refInvoiceId} onChange={e => setField('refInvoiceId', e.target.value)} style={inputStyle} placeholder="เลขที่ใบแจ้งหนี้" />
-                </div>
-              )}
-
-              <div>
-                <label style={labelStyle}>วันที่ออก</label>
-                <input value={form.issueDate} onChange={e => setField('issueDate', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
-              </div>
-              {docType !== 'receipt' && (
-                <div>
-                  <label style={labelStyle}>วันครบกำหนด</label>
-                  <input value={form.dueDate} onChange={e => setField('dueDate', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* รายละเอียดลูกค้า */}
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>
-              รายละเอียดลูกค้า
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#9aa7b2', marginLeft: 8 }}>(แสดงบนเอกสาร)</span>
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>ผู้ติดต่อ</label>
-                <input value={form.clientContact} onChange={e => setField('clientContact', e.target.value)} style={inputStyle} placeholder="ชื่อผู้ติดต่อ" />
-              </div>
-              <div>
-                <label style={labelStyle}>เบอร์โทร</label>
-                <input value={form.clientPhone} onChange={e => setField('clientPhone', e.target.value)} style={inputStyle} placeholder="เบอร์โทรศัพท์" />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ชื่อบริษัท / ผู้รับ</label>
-                <input value={form.clientName} onChange={e => setField('clientName', e.target.value)} style={inputStyle} placeholder="ชื่อบริษัทหรือชื่อลูกค้า" />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ที่อยู่</label>
-                <textarea value={form.clientAddress} onChange={e => setField('clientAddress', e.target.value)} style={{ ...inputStyle, height: 72, resize: 'vertical' }} placeholder="ที่อยู่" />
-              </div>
-              <div>
-                <label style={labelStyle}>เลขผู้เสียภาษี</label>
-                <input value={form.clientTaxId} onChange={e => setField('clientTaxId', e.target.value)} style={inputStyle} placeholder="0000000000000" />
+                )}
               </div>
             </div>
-          </div>
+          )}
 
           {/* รายการ */}
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: 0 }}>รายการ</h3>
-              <button
-                onClick={addItem}
-                style={{ background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: 16 }}>add</span>
-                เพิ่มรายการ
-              </button>
+            <div style={cardTitle}>รายการ</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 66px 100px 92px 30px', gap: 9, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 2px 10px' }}>
+              <div>รายการ</div>
+              <div style={{ textAlign: 'center' }}>จำนวน</div>
+              <div style={{ textAlign: 'center' }}>หน่วย</div>
+              <div style={{ textAlign: 'right' }}>ราคา/หน่วย</div>
+              <div style={{ textAlign: 'right' }}>รวม</div>
+              <div />
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #edf0f3' }}>
-                    {['ชื่อรายการ', 'รายละเอียด', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'รวม', ''].map(h => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: h === 'รวม' ? 'right' : 'left', fontSize: 12, fontWeight: 600, color: '#9aa7b2' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.items.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f5f7f9' }}>
-                      <td style={{ padding: '8px 10px', minWidth: 140 }}>
-                        <input value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} style={{ ...inputStyle, padding: '7px 10px' }} placeholder="ชื่อรายการ" />
-                      </td>
-                      <td style={{ padding: '8px 10px', minWidth: 140 }}>
-                        <input value={item.detail} onChange={e => updateItem(idx, 'detail', e.target.value)} style={{ ...inputStyle, padding: '7px 10px' }} placeholder="รายละเอียด" />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 70 }}>
-                        <input type="number" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} style={{ ...inputStyle, padding: '7px 10px', textAlign: 'center' }} min={1} />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 80 }}>
-                        <input value={item.unit} onChange={e => updateItem(idx, 'unit', e.target.value)} style={{ ...inputStyle, padding: '7px 10px' }} />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 120 }}>
-                        <input type="number" value={item.price} onChange={e => updateItem(idx, 'price', Number(e.target.value))} style={{ ...inputStyle, padding: '7px 10px', textAlign: 'right' }} min={0} />
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontSize: 14, whiteSpace: 'nowrap' }}>
-                        ฿{fmt(item.qty * item.price)}
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 36 }}>
-                        {form.items.length > 1 && (
-                          <button onClick={() => removeItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e07b54', padding: 4 }}>
-                            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>close</span>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Receipt: Payment section */}
-          {docType === 'receipt' && (
-            <div style={cardStyle}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>ข้อมูลการชำระเงิน</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>วิธีชำระเงิน</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {PAY_METHODS.map(m => (
-                      <button
-                        key={m}
-                        onClick={() => setField('payMethod', m)}
-                        style={{
-                          padding: '7px 14px', border: `2px solid ${form.payMethod === m ? '#5f7d99' : '#edf0f3'}`,
-                          borderRadius: 10, background: form.payMethod === m ? '#e8eef4' : '#fff',
-                          color: form.payMethod === m ? '#5f7d99' : '#7a8893', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                        }}
-                      >{m}</button>
-                    ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {form.items.map((it, idx) => (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 56px 66px 100px 92px 30px', gap: 9, alignItems: 'center' }}>
+                  <input value={it.name} onChange={e => updateItem(idx, 'name', e.target.value)} placeholder="ชื่อรายการ" style={qInput} />
+                  <input type="number" value={it.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 8px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#2f3b45', outline: 'none', textAlign: 'center', background: '#fff', boxSizing: 'border-box' }} />
+                  <input value={it.unit} onChange={e => updateItem(idx, 'unit', e.target.value)} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 8px', fontFamily: 'inherit', fontSize: 13, color: '#2f3b45', outline: 'none', textAlign: 'center', background: '#fff', boxSizing: 'border-box' }} />
+                  <input type="number" value={it.price} onChange={e => updateItem(idx, 'price', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 10px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#2f3b45', outline: 'none', textAlign: 'right', background: '#fff', boxSizing: 'border-box' }} />
+                  <div style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 13, fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmt(it.qty * it.price)}</div>
+                  <div onClick={() => removeItem(idx)} style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span>
                   </div>
                 </div>
-                <div>
-                  <label style={labelStyle}>วันที่รับชำระ</label>
-                  <input value={form.payDate} onChange={e => setField('payDate', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
-                </div>
-                <div>
-                  <label style={labelStyle}>เลขอ้างอิง / เลขโอน</label>
-                  <input value={form.payRef} onChange={e => setField('payRef', e.target.value)} style={inputStyle} placeholder="xxxxxx" />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={labelStyle}>อัปโหลด Slip (URL)</label>
-                  <input value={form.delivery} onChange={e => setField('delivery', e.target.value)} style={inputStyle} placeholder="https://..." />
-                </div>
-              </div>
+              ))}
             </div>
-          )}
-
-          {/* Tax Invoice: Delivery tracking */}
-          {docType === 'taxinvoice' && (
-            <div style={cardStyle}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>ข้อมูลการจัดส่ง</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>ขนส่ง</label>
-                  <input value={form.delivery} onChange={e => setField('delivery', e.target.value)} style={inputStyle} placeholder="Kerry / Flash / ไปรษณีย์" />
-                </div>
-                <div>
-                  <label style={labelStyle}>เลข Tracking</label>
-                  <input value={form.payRef} onChange={e => setField('payRef', e.target.value)} style={inputStyle} placeholder="TH000000000000" />
-                </div>
-                <div>
-                  <label style={labelStyle}>วันที่ส่ง</label>
-                  <input value={form.payDate} onChange={e => setField('payDate', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
-                </div>
-              </div>
+            <div onClick={addItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 14, padding: '10px 14px', border: '1.5px dashed #d4dce2', borderRadius: 10, fontSize: 13.5, fontWeight: 500, color: '#5f7d99', cursor: 'pointer' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 19 }}>add</span>เพิ่มรายการ
             </div>
-          )}
+          </div>
 
           {/* หมายเหตุ */}
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 12px' }}>หมายเหตุ</h3>
-            <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} style={{ ...inputStyle, height: 90, resize: 'vertical' }} placeholder="หมายเหตุเพิ่มเติม..." />
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 12 }}>หมายเหตุ</div>
+            <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} placeholder="เงื่อนไข วิธีชำระเงิน ฯลฯ" style={{ width: '100%', minHeight: 70, border: '1px solid #e4e8ec', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 13.5, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }} />
           </div>
         </div>
 
-        {/* Right column */}
-        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 0 }}>
-
-          {/* สรุปยอด */}
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>สรุปยอด</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#7a8893' }}>
-                <span>มูลค่ารวม</span><span>฿{fmt(sub)}</span>
+        {/* RIGHT */}
+        <div style={{ width: 320, flex: '1 1 280px', position: 'sticky', top: 6, background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 24 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 18 }}>สรุปยอด</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>รวมเป็นเงิน</span>
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmt(sub)}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>ส่วนลด</span>
+              <input type="number" value={form.discount} onChange={e => setField('discount', Number(e.target.value))} style={{ width: 120, border: '1px solid #e4e8ec', borderRadius: 9, height: 36, padding: '0 12px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#c4593f', outline: 'none', textAlign: 'right', background: '#fff', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>ภาษีมูลค่าเพิ่ม 7%</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 13.5, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{form.vatEnabled ? fmt(vat) : '0.00'}</span>
+                <div onClick={() => setField('vatEnabled', !form.vatEnabled)} style={toggleTrack(form.vatEnabled)}><div style={toggleKnob(form.vatEnabled)} /></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: '#7a8893' }}>
-                <span>ส่วนลด</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13 }}>฿</span>
-                  <input type="number" value={form.discount} onChange={e => setField('discount', Number(e.target.value))} style={{ ...inputStyle, width: 110, padding: '5px 8px', textAlign: 'right' }} min={0} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: '#7a8893' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.vatEnabled} onChange={e => setField('vatEnabled', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                  VAT 7%
-                </label>
-                <span>{form.vatEnabled ? `฿${fmt(vat)}` : '—'}</span>
-              </div>
-              <div style={{ height: 1, background: '#edf0f3' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, fontWeight: 700, color: '#2f3b45' }}>
-                <span>รวมทั้งสิ้น</span>
-                <span style={{ color: '#5f7d99' }}>฿{fmt(total)}</span>
-              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: 16, borderTop: '1.5px solid #eef1f4' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>รวมทั้งสิ้น</span>
+              <span style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{fmt(total)}</span>
             </div>
           </div>
 
-          {/* Bank (not for taxinvoice receipt) */}
-          {docType === 'invoice' && (
-            <div style={cardStyle}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 12px' }}>บัญชีรับชำระเงิน</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {BANKS.map((bank, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setField('bankIndex', idx)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      border: `2px solid ${form.bankIndex === idx ? '#5f7d99' : '#edf0f3'}`,
-                      borderRadius: 10, background: form.bankIndex === idx ? '#e8eef4' : '#fff',
-                      cursor: 'pointer', textAlign: 'left' as const, width: '100%',
-                    }}
-                  >
-                    <span className="material-symbols-rounded" style={{ fontSize: 20, color: form.bankIndex === idx ? '#5f7d99' : '#b0bdc8' }}>account_balance</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: form.bankIndex === idx ? '#5f7d99' : '#4a5a67' }}>{bank.name}</span>
-                  </button>
-                ))}
-              </div>
+          <div onClick={() => handleSave(form.status, 'detail')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 12, background: '#5f7d99', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', marginTop: 20, boxShadow: '0 4px 12px rgba(95,125,153,.3)', opacity: saving ? 0.7 : 1 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>save</span>บันทึกเอกสาร
+          </div>
+          <div onClick={() => handleSave('draft', 'detail')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 42, borderRadius: 12, background: '#fff', border: '1px solid #e4e8ec', color: '#5b6b77', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 10 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 19 }}>visibility</span>พรีวิวเอกสาร
+          </div>
+
+          {incomplete && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 11, fontSize: 12, color: '#a9762f' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 16 }}>info</span>เลือกลูกค้าและเพิ่มรายการอย่างน้อย 1 รายการ
             </div>
           )}
 
-          {/* Type indicator */}
-          <div style={{ ...cardStyle, background: '#f9fafb', border: '1px dashed #d0d8e0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 28, color: '#5f7d99' }}>{cfg.icon}</span>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#2f3b45' }}>{cfg.label}</div>
-                <div style={{ fontSize: 12, color: '#9aa7b2' }}>{cfg.labelEn}</div>
-              </div>
+          {showBankCard && (
+            <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1.5px solid #eef1f4' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#3b4954', marginBottom: 9 }}>บัญชีรับชำระเงิน</div>
+              <select value={form.bankIndex} onChange={e => setField('bankIndex', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 40, padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45', outline: 'none', background: '#fff', boxSizing: 'border-box', marginBottom: 11 }}>
+                {bankList.map((b, i) => <option key={b.id || i} value={i}>{b.bank} · {b.accountNo}</option>)}
+              </select>
+              {bank && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#f5f7f9', borderRadius: 11, padding: '12px 13px' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: brand.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#fff' }}>{brand.icon}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: '#5b6b77' }}>{bank.bank} · {bank.name}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{bank.accountNo}</div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
