@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 const STRING_FIELDS = [
   'type', 'status', 'quotationId', 'refInvoiceId', 'customerId',
   'clientName', 'clientAddress', 'clientTaxId', 'clientContact', 'clientPhone',
-  'payMethod', 'payDate', 'payRef', 'slipUrl', 'issueDate', 'dueDate',
+  'payMethod', 'payDate', 'payRef', 'slipUrl', 'slipOcr', 'issueDate', 'dueDate',
   'delivery', 'notes',
 ] as const
 

@@ -95,6 +95,7 @@ model Document {
   payDate      String?
   payRef       String?
   slipUrl      String?
+  slipOcr      String?
   issueDate    String
   dueDate      String?
   delivery     String?

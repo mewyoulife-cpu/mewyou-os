@@ -6,6 +6,7 @@ import Link from 'next/link'
 import DocumentDoc, { BankView, bankBrand as docBankBrand } from '@/components/DocumentDoc'
 import { printDocNode } from '@/lib/printDoc'
 import { companyFromSettings, type CompanyInfo } from '@/lib/company'
+import { readSlip, type SlipData } from '@/lib/slipOcr'
 
 interface Customer {
   id: string
@@ -81,6 +82,7 @@ interface DocumentData {
   payDate?: string
   payRef?: string
   slipUrl?: string
+  slipOcr?: string
   issueDate: string
   dueDate?: string
   notes?: string
@@ -183,6 +185,8 @@ export default function EditDocumentPage() {
   const [saving, setSaving] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'reading' | 'done' | 'fail'>('idle')
+  const [ocrData, setOcrData] = useState<SlipData | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -206,6 +210,7 @@ export default function EditDocumentPage() {
     payDate: today,
     payRef: '',
     slipUrl: '',
+    slipOcr: '',
     status: 'draft',
     clientName: '',
     clientAddress: '',
@@ -264,6 +269,7 @@ export default function EditDocumentPage() {
           payDate: d.payDate || today,
           payRef: d.payRef || '',
           slipUrl: d.slipUrl || '',
+          slipOcr: d.slipOcr || '',
           status: d.status || 'draft',
           clientName: d.clientName || '',
           clientAddress: d.clientAddress || '',
@@ -355,9 +361,29 @@ export default function EditDocumentPage() {
   async function handleSlipFile(file: File | undefined) {
     if (!file) return
     try {
-      const url = await compressImage(file, 700)
+      const url = await compressImage(file, 1000)
       setField('slipUrl', url)
     } catch {}
+    setOcrStatus('reading')
+    setOcrData(null)
+    try {
+      const data = await readSlip(file)
+      if (data.ok) {
+        setOcrData(data)
+        setForm(f => ({
+          ...f,
+          payRef: data.ref || data.transactionId || f.payRef,
+          payDate: data.date || f.payDate,
+          slipOcr: JSON.stringify(data),
+        }))
+        setOcrStatus('done')
+      } else {
+        setOcrStatus('fail')
+        setForm(f => ({ ...f, slipOcr: '' }))
+      }
+    } catch {
+      setOcrStatus('fail')
+    }
   }
 
   const { sub, vat, total } = calcSummary(form.items, form.discount, form.vatEnabled)
@@ -396,6 +422,7 @@ export default function EditDocumentPage() {
           payDate: form.payDate || null,
           payRef: form.payRef || null,
           slipUrl: form.slipUrl || null,
+          slipOcr: form.slipOcr || null,
           issueDate: form.issueDate,
           dueDate: form.dueDate || null,
           notes: form.notes || null,
@@ -571,22 +598,58 @@ export default function EditDocumentPage() {
                     <span className="material-symbols-rounded" style={{ fontSize: 26, color: '#5f9b78' }}>add_photo_alternate</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: '#3d6a52' }}>แนบสลิปการโอนเงิน</div>
-                      <div style={{ fontSize: 12, color: '#8aa698' }}>รองรับ JPG, PNG</div>
+                      <div style={{ fontSize: 12, color: '#8aa698' }}>ระบบจะอ่านข้อมูลจากสลิปอัตโนมัติ (OCR) · รองรับทุกธนาคาร, QR / Mobile Banking</div>
                     </div>
                     <input type="file" accept="image/*" onChange={e => handleSlipFile(e.target.files?.[0])} style={{ display: 'none' }} />
                   </label>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 13, border: '1px solid #d6e7dd', borderRadius: 11, background: '#f7faf8' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={form.slipUrl} alt="slip" style={{ width: 48, height: 48, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3d8a64', fontWeight: 600 }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check_circle</span>แนบสลิปแล้ว
+                  <div style={{ border: '1px solid #d6e7dd', borderRadius: 11, background: '#f7faf8', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 13 }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={form.slipUrl} alt="slip" style={{ width: 48, height: 48, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {ocrStatus === 'reading' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#a9762f', fontWeight: 600 }}>
+                            <span className="material-symbols-rounded" style={{ fontSize: 17 }}>autorenew</span>กำลังอ่านข้อมูลจากสลิป (OCR)...
+                          </div>
+                        ) : ocrStatus === 'done' ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3d8a64', fontWeight: 600 }}>
+                              <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check_circle</span>อ่านสลิปสำเร็จ · เติมข้อมูลให้อัตโนมัติ
+                            </div>
+                            <div style={{ fontSize: 12, color: '#8aa698', marginTop: 2 }}>ตรวจสอบ/แก้ไขข้อมูลด้านบนได้ก่อนบันทึก</div>
+                          </>
+                        ) : ocrStatus === 'fail' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#c4593f', fontWeight: 600 }}>
+                            <span className="material-symbols-rounded" style={{ fontSize: 17 }}>error</span>อ่านสลิปไม่สำเร็จ · กรุณากรอกข้อมูลเอง
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3d8a64', fontWeight: 600 }}>
+                            <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check_circle</span>แนบสลิปแล้ว
+                          </div>
+                        )}
+                      </div>
+                      <div onClick={() => { setField('slipUrl', ''); setField('slipOcr', ''); setOcrStatus('idle'); setOcrData(null) }} style={{ width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span>
                       </div>
                     </div>
-                    <div onClick={() => setField('slipUrl', '')} style={{ width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span>
-                    </div>
+                    {ocrStatus === 'done' && ocrData && (
+                      <div style={{ borderTop: '1px solid #e0efe7', padding: '12px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12 }}>
+                        {[
+                          ['จำนวนเงิน', ocrData.amount != null ? '฿' + ocrData.amount.toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '—'],
+                          ['วันที่/เวลา', ocrData.date || '—'],
+                          ['เลขอ้างอิง', ocrData.ref || ocrData.transactionId || '—'],
+                          ['ธนาคารต้นทาง', ocrData.fromBank || '—'],
+                          ['ธนาคารปลายทาง', ocrData.toBank || '—'],
+                          ['ผู้โอน', ocrData.sender || '—'],
+                        ].map(([k, v]) => (
+                          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: '#8aa698' }}>{k}</span>
+                            <span style={{ color: '#2f5a45', fontWeight: 600, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
