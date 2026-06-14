@@ -1,7 +1,14 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+
+// Compact money formatter to match the design (฿2.4M, ฿850K, ฿1,200).
+function formatSales(n: number): string {
+  if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `฿${Math.round(n / 1_000)}K`
+  return `฿${n.toLocaleString('en-US')}`
+}
 
 function LoginForm() {
   const router = useRouter()
@@ -14,6 +21,20 @@ function LoginForm() {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState<{ projectCount: number; salesThisYear: number } | null>(null)
+
+  // Live studio stats for the left panel — refreshed from the database.
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      fetch('/api/public/stats', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (alive && d) setStats(d) })
+        .catch(() => {})
+    load()
+    const t = setInterval(load, 30000) // keep it fresh while the page is open
+    return () => { alive = false; clearInterval(t) }
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -75,12 +96,16 @@ function LoginForm() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 26, marginTop: 40 }}>
             <div>
-              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif" }}>28+</div>
+              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                {stats ? stats.projectCount : '—'}
+              </div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)' }}>Projects</div>
             </div>
             <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,.3)' }} />
             <div>
-              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif" }}>฿2.4M</div>
+              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                {stats ? formatSales(stats.salesThisYear) : '—'}
+              </div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)' }}>Sales this year</div>
             </div>
           </div>
