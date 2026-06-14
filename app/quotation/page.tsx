@@ -4,25 +4,44 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+interface RawItem { qty: number; price: number }
+
 interface Quotation {
   id: string
   no: string
-  clientName: string
-  projectName: string
-  issueDate: string
-  total: number
   status: 'draft' | 'sent' | 'approved' | 'rejected'
+  issueDate: string
+  clientName?: string
+  items: string | RawItem[]
+  discount?: number
+  vatEnabled?: boolean
+  customer?: { name?: string; company?: string } | null
 }
 
-const statusMap = {
-  draft:    { label: 'ร่าง',    bg: '#f5f7f9', color: '#7a8893' },
-  sent:     { label: 'รอตอบ',   bg: '#fdf3e3', color: '#f4a431' },
-  approved: { label: 'อนุมัติ', bg: '#e9f3ed', color: '#3d8a64' },
-  rejected: { label: 'ยกเลิก',  bg: '#fceee8', color: '#c4593f' },
+const statusMap: Record<string, { label: string; bg: string; color: string }> = {
+  draft:    { label: 'ร่าง',        bg: '#f0f2f5', color: '#8a97a2' },
+  sent:     { label: 'ส่งแล้ว',     bg: '#e8f1f9', color: '#3f6797' },
+  approved: { label: 'อนุมัติแล้ว', bg: '#e9f3ed', color: '#3d8a64' },
+  rejected: { label: 'ปฏิเสธ',      bg: '#fceee8', color: '#c4593f' },
+}
+
+function calcAmount(q: Quotation): number {
+  try {
+    const items = typeof q.items === 'string' ? JSON.parse(q.items) : q.items
+    const sub = (items as RawItem[]).reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0)
+    const afterDiscount = sub - (q.discount || 0)
+    return q.vatEnabled ? afterDiscount * 1.07 : afterDiscount
+  } catch {
+    return 0
+  }
 }
 
 function fmtMoney(n: number) {
-  return '฿' + Math.round(n).toLocaleString('th-TH')
+  return '฿' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function custName(q: Quotation): string {
+  return q.clientName || q.customer?.company || q.customer?.name || '—'
 }
 
 export default function QuotationListPage() {
@@ -46,29 +65,29 @@ export default function QuotationListPage() {
 
   const counts = {
     all:      quotations.length,
+    draft:    quotations.filter(q => q.status === 'draft').length,
     sent:     quotations.filter(q => q.status === 'sent').length,
     approved: quotations.filter(q => q.status === 'approved').length,
-    rejected: quotations.filter(q => q.status === 'rejected').length,
   }
 
   const kpiCards = [
-    { label: 'ทั้งหมด', value: counts.all,      accent: { width: 4, height: 40, borderRadius: 4, background: '#5f7d99' } },
-    { label: 'รอตอบ',   value: counts.sent,     accent: { width: 4, height: 40, borderRadius: 4, background: '#f4a431' } },
-    { label: 'อนุมัติ', value: counts.approved, accent: { width: 4, height: 40, borderRadius: 4, background: '#3d8a64' } },
-    { label: 'ยกเลิก',  value: counts.rejected, accent: { width: 4, height: 40, borderRadius: 4, background: '#c4593f' } },
+    { label: 'ทั้งหมด',     value: counts.all,      color: '#5f7d99' },
+    { label: 'ร่าง',        value: counts.draft,    color: '#9a7a2e' },
+    { label: 'ส่งแล้ว',     value: counts.sent,     color: '#3f6797' },
+    { label: 'อนุมัติแล้ว', value: counts.approved, color: '#3d8a64' },
   ]
 
   const filterLabels: Record<string, string> = {
     all: 'สถานะ',
     draft: 'ร่าง',
-    sent: 'รอตอบ',
-    approved: 'อนุมัติ',
-    rejected: 'ยกเลิก',
+    sent: 'ส่งแล้ว',
+    approved: 'อนุมัติแล้ว',
+    rejected: 'ปฏิเสธ',
   }
 
   const filtered = quotations.filter(q => {
     const s = search.toLowerCase()
-    const matchSearch = !s || q.no?.toLowerCase().includes(s) || q.clientName?.toLowerCase().includes(s) || q.projectName?.toLowerCase().includes(s)
+    const matchSearch = !s || q.no?.toLowerCase().includes(s) || custName(q).toLowerCase().includes(s)
     const matchStatus = filterStatus === 'all' || q.status === filterStatus
     return matchSearch && matchStatus
   })
@@ -103,7 +122,7 @@ export default function QuotationListPage() {
             background: '#fff', borderRadius: 14, border: '1px solid #edf0f3',
             padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 13,
           }}>
-            <div style={card.accent} />
+            <div style={{ width: 8, height: 32, borderRadius: 5, background: card.color, flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: 12.5, color: '#7a8893' }}>{card.label}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{card.value}</div>
@@ -152,7 +171,7 @@ export default function QuotationListPage() {
               <div style={{
                 position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
                 background: '#fff', borderRadius: 12, border: '1px solid #eaedf0',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.10)', overflow: 'hidden', minWidth: 140,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.10)', overflow: 'hidden', minWidth: 150,
               }}>
                 {(['all', 'draft', 'sent', 'approved', 'rejected'] as const).map(s => (
                   <div
@@ -229,16 +248,16 @@ export default function QuotationListPage() {
                   {q.no}
                 </div>
                 <div style={{ fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {q.clientName || '—'}
+                  {custName(q)}
                 </div>
                 <div style={{ color: '#7a8893', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {q.projectName || '—'}
+                  —
                 </div>
                 <div style={{ color: '#7a8893', fontSize: 13 }}>
                   {q.issueDate || '—'}
                 </div>
                 <div style={{ textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                  {fmtMoney(q.total ?? 0)}
+                  {fmtMoney(calcAmount(q))}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{
