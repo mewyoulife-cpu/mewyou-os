@@ -24,7 +24,25 @@ interface Item {
   price: number
 }
 
-const BANK_NAMES = ['ธนาคารกสิกรไทย', 'ธนาคารไทยพาณิชย์', 'ธนาคารกรุงเทพ', 'พร้อมเพย์']
+interface BankView { bank: string; no: string; name: string; brand: string; icon: string }
+
+function bankBrand(name: string): { brand: string; icon: string } {
+  const n = name || ''
+  if (n.includes('กสิกร') || /kbank/i.test(n)) return { brand: '#1aa84a', icon: 'eco' }
+  if (n.includes('ไทยพาณิชย์') || /scb/i.test(n)) return { brand: '#4e2a84', icon: 'savings' }
+  if (n.includes('กรุงเทพ') || /bbl/i.test(n)) return { brand: '#1e4598', icon: 'account_balance' }
+  if (n.includes('พร้อมเพย์') || /promptpay/i.test(n)) return { brand: '#0a3a6b', icon: 'qr_code_2' }
+  if (n.includes('กรุงไทย') || /ktb/i.test(n)) return { brand: '#00a4e4', icon: 'account_balance' }
+  if (n.includes('กรุงศรี')) return { brand: '#fdb913', icon: 'account_balance' }
+  return { brand: '#5f7d99', icon: 'account_balance' }
+}
+
+const FALLBACK_BANKS: BankView[] = [
+  { bank: 'ธนาคารกสิกรไทย', no: '041-8-63463-4', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1aa84a', icon: 'eco' },
+  { bank: 'ธนาคารไทยพาณิชย์', no: '264-2-51789-0', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#4e2a84', icon: 'savings' },
+  { bank: 'ธนาคารกรุงเทพ', no: '195-0-44217-6', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1e4598', icon: 'account_balance' },
+  { bank: 'พร้อมเพย์ / PromptPay', no: '0-1055-60143-09-9', name: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', brand: '#0a3a6b', icon: 'qr_code_2' },
+]
 const PAY_TERMS = [
   { value: 'deposit50', label: 'มัดจำ 50% ก่อนเริ่มงาน' },
   { value: 'full', label: 'ชำระเต็มจำนวน' },
@@ -78,6 +96,7 @@ export default function EditQuotationPage() {
   const [discount, setDiscount] = useState(0)
   const [paymentTerm, setPaymentTerm] = useState('deposit50')
   const [bankIndex, setBankIndex] = useState(0)
+  const [banks, setBanks] = useState<BankView[]>([])
   const [clientName, setClientName] = useState('')
   const [clientAddress, setClientAddress] = useState('')
   const [clientTaxId, setClientTaxId] = useState('')
@@ -88,6 +107,11 @@ export default function EditQuotationPage() {
 
   useEffect(() => {
     fetch('/api/customers').then(r => r.json()).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/banks').then(r => r.json()).then(d => {
+      const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
+      if (!list.length) return
+      setBanks(list.map(b => ({ bank: b.bank, no: b.accountNo, name: b.name, ...bankBrand(b.bank) })))
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -361,10 +385,26 @@ export default function EditQuotationPage() {
               </select>
             </div>
             <div>
-              <label style={labelStyle}>บัญชีรับเงิน</label>
+              <label style={labelStyle}>บัญชีรับชำระเงิน</label>
               <select value={bankIndex} onChange={e => setBankIndex(Number(e.target.value))} style={inputStyle}>
-                {BANK_NAMES.map((b, i) => <option key={b} value={i}>{b}</option>)}
+                {(banks.length ? banks : FALLBACK_BANKS).map((b, i) => <option key={i} value={i}>{b.bank} · {b.no}</option>)}
               </select>
+              {(() => {
+                const list = banks.length ? banks : FALLBACK_BANKS
+                const b = list[bankIndex] || list[0]
+                if (!b) return null
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#f5f7f9', borderRadius: 11, padding: '12px 13px', marginTop: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: b.brand, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#fff' }}>{b.icon}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, color: '#5b6b77', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.bank} · {b.name}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', monospace" }}>{b.no}</div>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
