@@ -144,18 +144,18 @@ export default async function DashboardPage() {
   const sevenDaysAhead = new Date(today)
   sevenDaysAhead.setDate(today.getDate() + 7)
 
-  const NON_ACTIVE_STATUSES = ['completed', 'lead', 'deliver']
+  const WAITING_DESIGN_STATUSES = ['lead', 'brief', 'quotation', 'payment']
 
   const [
     projectCount,
     projectsThisMonth,
     projectsLastMonth,
-    inProgressCount,
-    inProgressThisMonth,
-    inProgressLastMonth,
-    deliverCount,
-    deliverThisMonth,
-    deliverLastMonth,
+    waitingDesignCount,
+    waitingDesignThisMonth,
+    waitingDesignLastMonth,
+    completedCount,
+    completedThisMonth,
+    completedLastMonth,
     recentProjects,
     statusGroups,
     nonCompletedProjects,
@@ -176,12 +176,12 @@ export default async function DashboardPage() {
     prisma.project.count(),
     prisma.project.count({ where: { createdAt: { gte: startOfThisMonth } } }),
     prisma.project.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES } } }),
-    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES }, createdAt: { gte: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: 'deliver' } }),
-    prisma.project.count({ where: { status: 'deliver', createdAt: { gte: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: 'deliver', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES } } }),
+    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES }, createdAt: { gte: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: 'completed' } }),
+    prisma.project.count({ where: { status: 'completed', createdAt: { gte: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: 'completed', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.project.findMany({
       include: { customer: true },
       orderBy: { createdAt: 'desc' },
@@ -203,8 +203,8 @@ export default async function DashboardPage() {
     prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfThisMonth } } }),
     prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.document.findMany({
-      where: { type: { in: ['invoice', 'taxinvoice'] }, status: { in: ['draft', 'sent'] } },
-      orderBy: { createdAt: 'desc' },
+      where: { type: 'taxinvoice', txEmailSent: false, txPostSent: false },
+      orderBy: { createdAt: 'asc' },
       take: 5,
       select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
     }),
@@ -255,15 +255,15 @@ export default async function DashboardPage() {
 
   // ---- KPI cards (design order, all real data, all with trend pills) ----
   const projectTrend = trendPill(projectsThisMonth, projectsLastMonth)
-  const inProgressTrend = trendPill(inProgressThisMonth, inProgressLastMonth)
-  const deliverTrend = trendPill(deliverThisMonth, deliverLastMonth)
+  const waitingDesignTrend = trendPill(waitingDesignThisMonth, waitingDesignLastMonth)
+  const completedTrend = trendPill(completedThisMonth, completedLastMonth)
   const salesTrend = trendPill(salesThisMonth, salesLastMonth)
   const outstandingTrend = trendPill(outstandingDocsThisMonth, outstandingDocsLastMonth)
 
   const kpis: KpiCard[] = [
     { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', ...projectTrend },
-    { icon: 'pending_actions', label: 'กำลังดำเนินการ', value: String(inProgressCount), unit: 'โปรเจกต์', ...inProgressTrend },
-    { icon: 'local_shipping', label: 'รอส่งมอบ', value: String(deliverCount), unit: 'งาน', ...deliverTrend },
+    { icon: 'draw', label: 'กำลังรอออกแบบ', value: String(waitingDesignCount), unit: 'โปรเจกต์', ...waitingDesignTrend },
+    { icon: 'task_alt', label: 'งานเสร็จสิ้นแล้ว', value: String(completedCount), unit: 'โปรเจกต์', ...completedTrend },
     { icon: 'payments', label: 'ยอดขายรวม (เดือนนี้)', value: salesThisMonth > 0 ? fmtShort(Math.round(salesThisMonth)) : '฿0', unit: '', ...salesTrend },
     { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '', ...outstandingTrend },
   ]
@@ -458,8 +458,8 @@ export default async function DashboardPage() {
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 11px', borderBottom: '1px solid #f0f2f5' }}>
-              {['รหัสโปรเจกต์', 'ชื่อลูกค้า', 'ประเภท', 'สถานะ', 'ความคืบหน้า', 'กำหนดส่ง', 'มูลค่า'].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 11px', borderBottom: '1px solid #f0f2f5' }}>
+              {['Logo', 'รหัสโปรเจกต์', 'ชื่อลูกค้า', 'ประเภท', 'สถานะ', 'ความคืบหน้า', 'กำหนดส่ง', 'มูลค่า'].map(h => (
                 <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h}</div>
               ))}
             </div>
@@ -473,7 +473,13 @@ export default async function DashboardPage() {
               const pct = STATUS_PROGRESS[p.status] || 0
               return (
                 <Link href={`/projects/${p.id}`} key={p.id} style={{ textDecoration: 'none' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '13px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '13px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}>
+                    {p.customer?.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.customer.logo} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid #eef1f4', background: '#f7f9fb' }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #eef1f4', background: '#f7f9fb' }} />
+                    )}
                     <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{p.code}</div>
                     <div style={{ fontWeight: 600, color: '#2f3b45' }}>{p.customer?.name || '-'}</div>
                     <div style={{ color: '#7a8893', fontSize: 13 }}>{p.type}</div>
