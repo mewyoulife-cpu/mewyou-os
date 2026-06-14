@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -90,7 +90,10 @@ export default function QuotationDetailPage() {
   const router = useRouter()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [loading, setLoading] = useState(true)
-  const [updating, setUpdating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -103,18 +106,60 @@ export default function QuotationDetailPage() {
       .catch(() => setLoading(false))
   }, [id])
 
-  async function handleSendToClient() {
+  async function handleSave() {
     if (!quotation) return
-    if (!confirm('ต้องการเปลี่ยนสถานะเป็น "ส่งแล้ว"?')) return
-    setUpdating(true)
-    const res = await fetch(`/api/quotations/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'sent' }),
-    })
-    const data = await res.json()
-    setQuotation(data)
-    setUpdating(false)
+    setSaving(true)
+    setSaved(false)
+    try {
+      const res = await fetch(`/api/quotations/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: quotation.status,
+          issueDate: quotation.issueDate,
+          expiry: quotation.expiry ?? null,
+          items: quotation.items,
+          discount: quotation.discount,
+          vatEnabled: quotation.vatEnabled,
+          paymentTerm: quotation.paymentTerm,
+          bankIndex: quotation.bankIndex,
+          clientName: quotation.clientName ?? null,
+          clientAddress: quotation.clientAddress ?? null,
+          clientTaxId: quotation.clientTaxId ?? null,
+          clientContact: quotation.clientContact ?? null,
+          clientPhone: quotation.clientPhone ?? null,
+          notes: quotation.notes ?? null,
+        }),
+      })
+      const data = await res.json()
+      setQuotation(data)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleExportPdf() {
+    const el = docRef.current
+    if (!el || !quotation) return
+    setExporting(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename: `${quotation.no}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        })
+        .from(el)
+        .save()
+    } finally {
+      setExporting(false)
+    }
   }
 
   if (loading) {
@@ -185,15 +230,17 @@ export default function QuotationDetailPage() {
         </div>
         <div style={{ display: 'flex', gap: 9 }}>
           <button
-            onClick={() => window.print()}
+            onClick={handleExportPdf}
+            disabled={exporting}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px',
               border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77',
-              fontWeight: 500, cursor: 'pointer', background: '#fff',
+              fontWeight: 500, cursor: exporting ? 'wait' : 'pointer', background: '#fff',
+              opacity: exporting ? 0.7 : 1,
             }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>picture_as_pdf</span>
-            Export PDF
+            {exporting ? 'กำลังสร้าง...' : 'Export PDF'}
           </button>
           <button
             onClick={() => router.push(`/quotation/${id}/edit`)}
@@ -207,17 +254,17 @@ export default function QuotationDetailPage() {
             แก้ไข
           </button>
           <button
-            onClick={handleSendToClient}
-            disabled={updating}
+            onClick={handleSave}
+            disabled={saving}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 18px',
-              borderRadius: 10, background: '#5f7d99', color: '#fff',
-              fontSize: 13.5, fontWeight: 600, cursor: updating ? 'not-allowed' : 'pointer',
-              border: 'none', opacity: updating ? 0.7 : 1,
+              borderRadius: 10, background: saved ? '#3d8a64' : '#5f7d99', color: '#fff',
+              fontSize: 13.5, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
+              border: 'none', opacity: saving ? 0.7 : 1,
             }}
           >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>send</span>
-            ส่งให้ลูกค้า
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>{saved ? 'check_circle' : 'save'}</span>
+            {saving ? 'กำลังบันทึก...' : saved ? 'บันทึกแล้ว' : 'บันทึกข้อมูลใบเสนอราคา'}
           </button>
           <button style={{
             width: 40, height: 40, border: '1px solid #e4e8ec', borderRadius: 10,
@@ -230,7 +277,7 @@ export default function QuotationDetailPage() {
       </div>
 
       {/* Document Card */}
-      <div className="print-doc" style={{
+      <div ref={docRef} className="print-doc" style={{
         background: '#ffffff', borderRadius: 14, border: '1px solid #edf0f3',
         padding: '46px 48px', maxWidth: 860, margin: '0 auto',
       }}>
