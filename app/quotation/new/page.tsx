@@ -210,7 +210,12 @@ export default function NewQuotationPage() {
           notes: form.notes || null,
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.id) {
+        alert(data?.error ? `บันทึกไม่สำเร็จ: ${data.error}` : 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+        setSaving(false)
+        return
+      }
       router.push(dest === 'list' ? '/quotation' : `/quotation/${data.id}`)
     } catch {
       alert('เกิดข้อผิดพลาด กรุณาลองใหม่')

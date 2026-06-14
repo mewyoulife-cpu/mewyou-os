@@ -19,15 +19,27 @@ const STRING_FIELDS = [
   'delivery', 'notes',
 ] as const
 
+async function nextSequence(prefix: string, year: number): Promise<number> {
+  // Derive the next number from the highest existing sequence, not the row count —
+  // counts drift after deletes and cause duplicate-`no` collisions.
+  const existing = await prisma.document.findMany({
+    where: { no: { startsWith: `${prefix}-${year}-` } },
+    select: { no: true },
+  })
+  const maxSeq = existing.reduce((m, d) => {
+    const n = parseInt(d.no.split('-')[2] || '0', 10)
+    return Number.isFinite(n) && n > m ? n : m
+  }, 0)
+  return maxSeq + 1
+}
+
 export async function POST(req: Request) {
   const body = await req.json()
   const prefix = body.type === 'invoice' ? 'INV' : body.type === 'receipt' ? 'REC' : 'TAX'
-  const count = await prisma.document.count({ where: { type: body.type } })
-  const no = `${prefix}-${new Date().getFullYear() + 543}-${String(count + 1).padStart(4, '0')}`
+  const year = new Date().getFullYear() + 543
 
   // Build a whitelisted payload so unknown keys / empty foreign keys can't break the insert.
   const data: Record<string, unknown> = {
-    no,
     items: typeof body.items === 'string' ? body.items : JSON.stringify(body.items || []),
     discount: Number(body.discount) || 0,
     vatEnabled: body.vatEnabled !== false,
@@ -37,10 +49,20 @@ export async function POST(req: Request) {
     if (body[f] !== undefined) data[f] = body[f] === '' ? null : body[f]
   }
 
-  try {
-    const doc = await prisma.document.create({ data: data as Parameters<typeof prisma.document.create>[0]['data'] })
-    return NextResponse.json(doc)
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'create failed' }, { status: 400 })
+  let seq = await nextSequence(prefix, year)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const no = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
+    try {
+      const doc = await prisma.document.create({ data: { ...data, no } as Parameters<typeof prisma.document.create>[0]['data'] })
+      return NextResponse.json(doc)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('Unique constraint') || msg.includes('P2002')) {
+        seq += 1
+        continue
+      }
+      return NextResponse.json({ error: msg || 'create failed' }, { status: 400 })
+    }
   }
+  return NextResponse.json({ error: 'could not allocate document number' }, { status: 409 })
 }
