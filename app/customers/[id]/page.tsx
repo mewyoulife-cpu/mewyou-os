@@ -27,6 +27,7 @@ interface Customer {
   notes?: string
   projects?: Project[]
   totalRevenue?: number
+  totalPurchase?: number
   activeProjects?: number
 }
 
@@ -94,7 +95,7 @@ export default function CustomerDetailPage() {
   const type = TYPE_MAP[customer.type] || TYPE_MAP.normal
   const projects = customer.projects ?? []
   const projectCount = projects.length
-  const totalRevenue = customer.totalRevenue ?? 0
+  const totalRevenue = customer.totalPurchase ?? customer.totalRevenue ?? 0
   const pendingCount = customer.activeProjects ?? projects.filter(p => p.status !== 'completed').length
   const recentProjects = projects.slice(0, 3)
 
@@ -217,7 +218,7 @@ export default function CustomerDetailPage() {
               <div>
                 <div style={{ fontSize: 13, color: '#7a8893' }}>ยอดซื้อทั้งหมด</div>
                 <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                  ฿{totalRevenue.toLocaleString()}
+                  ฿{Math.round(totalRevenue).toLocaleString('th-TH')}
                 </div>
               </div>
             </div>

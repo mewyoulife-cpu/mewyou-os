@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { purchaseTotalsByCustomer } from '@/lib/customerStats'
 
 export async function GET() {
-  const customers = await prisma.customer.findMany({
-    include: { _count: { select: { projects: true } } },
-    orderBy: { createdAt: 'desc' }
-  })
-  return NextResponse.json(customers)
+  const [customers, docs] = await Promise.all([
+    prisma.customer.findMany({
+      include: { _count: { select: { projects: true } } },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.document.findMany({
+      where: { type: { in: ['invoice', 'receipt'] } },
+      select: { customerId: true, type: true, refInvoiceId: true, items: true, discount: true, vatEnabled: true },
+    }),
+  ])
+  const totals = purchaseTotalsByCustomer(docs)
+  return NextResponse.json(customers.map(c => ({ ...c, totalPurchase: totals[c.id] || 0 })))
 }
 
 export async function POST(req: Request) {

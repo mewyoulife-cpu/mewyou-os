@@ -12,6 +12,7 @@ interface Customer {
   phone?: string
   email?: string
   logo?: string | null
+  totalPurchase?: number
   _count?: { projects: number }
 }
 
@@ -159,7 +160,7 @@ function CustomerCard({ customer, onOpen, onLogoChange }: {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>ยอดซื้อรวม</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿0</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{Math.round(customer.totalPurchase || 0).toLocaleString('th-TH')}</div>
         </div>
       </div>
     </div>
