@@ -11,6 +11,7 @@ interface Customer {
   type: 'vip' | 'new' | 'normal'
   phone?: string
   email?: string
+  logo?: string | null
   _count?: { projects: number }
 }
 
@@ -34,6 +35,135 @@ function getGradient(name: string) {
 
 function getInitial(name: string) {
   return name.slice(0, 1).toUpperCase()
+}
+
+// Compress an image file to a small JPEG data URL suitable for storing in the DB
+function fileToCompressedDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new window.Image()
+      img.onload = () => {
+        const maxW = 480
+        const scale = Math.min(1, maxW / img.width)
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(reader.result as string); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', 0.85))
+      }
+      img.onerror = reject
+      img.src = reader.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function CustomerCard({ customer, onOpen, onLogoChange }: {
+  customer: Customer
+  onOpen: () => void
+  onLogoChange: (id: string, logo: string | null) => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const type = typeMap[customer.type] || typeMap.normal
+  const projectCount = customer._count?.projects ?? 0
+
+  async function saveLogo(logo: string | null) {
+    onLogoChange(customer.id, logo)
+    try {
+      await fetch(`/api/customers/${customer.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logo }),
+      })
+    } catch {
+      // keep optimistic state; will reconcile on next load
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file)
+      await saveLogo(dataUrl)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={onOpen}
+      style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #edf0f3', padding: 18, cursor: 'pointer', transition: 'box-shadow .15s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 22px rgba(40,60,80,.10)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+    >
+      {/* Avatar + name + badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#54697d', fontSize: 17, background: getGradient(customer.name), fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          {getInitial(customer.name)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: '#2f3b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {customer.name}
+          </div>
+          <div style={{ fontSize: 12.5, color: '#9aa7b2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {customer.company || '—'}
+          </div>
+        </div>
+        <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: type.bg, color: type.color, flexShrink: 0 }}>
+          {type.label}
+        </span>
+      </div>
+
+      {/* Logo area */}
+      {customer.logo ? (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'relative', marginTop: 13, height: 54, borderRadius: 10, border: '1px solid #f0f2f5', background: '#fafbfc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', overflow: 'hidden' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={customer.logo} alt={`${customer.name} logo`} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+          <label style={{ position: 'absolute', bottom: 5, right: 33, width: 22, height: 22, borderRadius: 7, background: 'rgba(47,59,69,.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 13, color: '#fff' }}>photo_camera</span>
+            <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+          <div onClick={() => saveLogo(null)} style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 7, background: 'rgba(47,59,69,.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 14, color: '#fff' }}>close</span>
+          </div>
+        </div>
+      ) : (
+        <label onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 13, height: 40, border: '1.5px dashed #d4dce2', borderRadius: 10, cursor: 'pointer', background: '#fafbfc' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#bcc7d1' }}>{uploading ? 'hourglass_empty' : 'add_photo_alternate'}</span>
+          <span style={{ fontSize: 12, color: '#9aa7b2' }}>{uploading ? 'กำลังอัปโหลด...' : 'เพิ่มโลโก้แบรนด์'}</span>
+          <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+      )}
+
+      {/* Phone */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#7a8893', marginTop: 14 }}>
+        <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#a9b6c0' }}>call</span>
+        {customer.phone || '—'}
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTop: '1px solid #f2f4f6' }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>โปรเจกต์</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#3b4954', fontFamily: "'IBM Plex Sans', sans-serif" }}>{projectCount}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>ยอดซื้อรวม</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿0</div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function CustomersPage() {
@@ -101,61 +231,14 @@ export default function CustomersPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14 }}>
-          {filtered.map(customer => {
-            const type = typeMap[customer.type] || typeMap.normal
-            const projectCount = customer._count?.projects ?? 0
-            return (
-              <div
-                key={customer.id}
-                onClick={() => router.push(`/customers/${customer.id}`)}
-                style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #edf0f3', padding: 18, cursor: 'pointer', transition: 'box-shadow .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 22px rgba(40,60,80,.10)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
-              >
-                {/* Avatar + name + badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#54697d', fontSize: 17, background: getGradient(customer.name), fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                    {getInitial(customer.name)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15.5, fontWeight: 700, color: '#2f3b45', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {customer.name}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: '#9aa7b2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {customer.company || '—'}
-                    </div>
-                  </div>
-                  <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: type.bg, color: type.color, flexShrink: 0 }}>
-                    {type.label}
-                  </span>
-                </div>
-
-                {/* Logo placeholder */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 13, height: 40, border: '1.5px dashed #d4dce2', borderRadius: 10, cursor: 'pointer', background: '#fafbfc' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#bcc7d1' }}>add_photo_alternate</span>
-                  <span style={{ fontSize: 12, color: '#9aa7b2' }}>เพิ่มโลโก้แบรนด์</span>
-                </div>
-
-                {/* Phone */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#7a8893', marginTop: 14 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#a9b6c0' }}>call</span>
-                  {customer.phone || '—'}
-                </div>
-
-                {/* Stats row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTop: '1px solid #f2f4f6' }}>
-                  <div>
-                    <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>โปรเจกต์</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#3b4954', fontFamily: "'IBM Plex Sans', sans-serif" }}>{projectCount}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11.5, color: '#9aa7b2' }}>ยอดซื้อรวม</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿0</div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          {filtered.map(customer => (
+            <CustomerCard
+              key={customer.id}
+              customer={customer}
+              onOpen={() => router.push(`/customers/${customer.id}`)}
+              onLogoChange={(id, logo) => setCustomers(prev => prev.map(c => c.id === id ? { ...c, logo } : c))}
+            />
+          ))}
         </div>
       )}
     </div>
