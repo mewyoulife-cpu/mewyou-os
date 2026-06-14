@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { printDocNode } from '@/lib/printDoc'
 
 interface Item {
   name: string
@@ -74,6 +75,7 @@ export default function DocumentDetailPage() {
   const [document, setDocument] = useState<Document | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -194,11 +196,7 @@ export default function DocumentDetailPage() {
             แก้ไข
           </button>
           <button
-            onClick={() => {
-              const prev = window.document.title
-              window.document.title = document.no
-              setTimeout(() => { window.print(); window.document.title = prev }, 60)
-            }}
+            onClick={() => printDocNode(docRef.current, document.no)}
             style={{ background: '#e8eef4', color: '#5f7d99', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>print</span>
@@ -228,7 +226,7 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Document */}
-      <div className="print-doc" style={{
+      <div ref={docRef} className="print-doc" style={{
         background: '#fff', borderRadius: 18, padding: '48px 56px', maxWidth: 800,
         margin: '0 auto', boxShadow: '0 4px 32px rgba(0,0,0,0.10)', fontSize: 13, color: '#1a2630',
         position: 'relative',

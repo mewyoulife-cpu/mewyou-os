@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { printDocNode } from '@/lib/printDoc'
 
 interface Item {
   name: string
@@ -155,17 +156,11 @@ export default function QuotationDetailPage() {
     }
   }
 
-  async function handleExportPdf() {
+  function handleExportPdf() {
     if (!quotation) return
-    const prevTitle = document.title
-    document.title = quotation.no
     setExporting(true)
-    // Give the title change a tick, then open the browser's print-to-PDF (A4, vector, exact layout)
-    setTimeout(() => {
-      window.print()
-      document.title = prevTitle
-      setExporting(false)
-    }, 60)
+    printDocNode(docRef.current, quotation.no)
+    setTimeout(() => setExporting(false), 1000)
   }
 
   if (loading) {
