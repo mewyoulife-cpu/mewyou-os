@@ -76,21 +76,18 @@ function monthKey(dateStr: string): string {
 
 export default function FinancePage() {
   const [data, setData] = useState<FinanceData>({})
-  const [selected, setSelected] = useState<string>('') // "" = all, else "YYYY-MM"
+  const [selected, setSelected] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }) // "" = all, else "YYYY-MM"
   const [open, setOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
-  useEffect(() => {
-    fetch('/api/finance')
-      .then(r => r.json())
-      .then((d: FinanceData) => {
-        setData(d)
-        // default to current month
-        const now = new Date()
-        const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-        setSelected(key)
-      })
-      .catch(() => {})
-  }, [])
+  function loadFinance() {
+    return fetch('/api/finance').then(r => r.json()).then((d: FinanceData) => setData(d)).catch(() => {})
+  }
+
+  useEffect(() => { loadFinance() }, [])
 
   const projects: Project[] = useMemo(() => data.projects || [], [data.projects])
   const expenses: Expense[] = useMemo(() => data.expenses || [], [data.expenses])
@@ -252,6 +249,13 @@ export default function FinancePage() {
           <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>การเงิน</div>
           <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>ภาพรวมรายรับ-รายจ่ายของสตูดิโอ</div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          onClick={() => setAddOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, height: 40, padding: '0 16px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)' }}
+        >
+          <span className="material-symbols-rounded" style={{ fontSize: 19 }}>add</span>เพิ่มรายจ่าย
+        </div>
         <div style={{ position: 'relative' }}>
           <div
             onClick={() => setOpen(o => !o)}
@@ -282,6 +286,7 @@ export default function FinancePage() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
 
@@ -423,6 +428,133 @@ export default function FinancePage() {
               <span style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{m2(expenseTotal)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {addOpen && <ExpenseModal onClose={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); loadFinance() }} />}
+    </div>
+  )
+}
+
+const EXPENSE_CATEGORIES = [
+  'ค่าวัตถุดิบ', 'ค่าแพ็กเกจจิ้ง', 'ค่าโฆษณา', 'ค่าขนส่ง', 'ค่าแรง',
+  'ค่าจ้าง Outsource', 'ค่าเช่า', 'ค่าสาธารณูปโภค', 'ค่า Software / SaaS', 'ค่าใช้จ่ายสำนักงาน', 'อื่น ๆ',
+]
+const PAY_METHODS = ['โอนเงิน', 'เงินสด', 'บัตรเครดิต', 'เช็ค', 'หักบัญชี']
+
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new window.Image()
+      img.onload = () => {
+        const maxW = 900
+        const scale = Math.min(1, maxW / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(reader.result as string); return }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.onerror = reject
+      img.src = reader.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function ExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [banks, setBanks] = useState<{ bank: string; accountNo: string }[]>([])
+  const [saving, setSaving] = useState(false)
+  const today = new Date().toISOString().slice(0, 10)
+  const [f, setF] = useState({
+    date: today, description: '', category: 'ค่าวัตถุดิบ', amount: '', supplier: '',
+    refNo: '', payMethod: 'โอนเงิน', bankAccount: '', note: '', receiptUrl: '',
+  })
+
+  useEffect(() => {
+    fetch('/api/banks').then(r => r.json()).then(d => setBanks(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
+
+  function set(k: string, v: string) { setF(s => ({ ...s, [k]: v })) }
+
+  async function handleReceipt(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try { set('receiptUrl', await compressImage(file)) } catch {}
+  }
+
+  async function save() {
+    if (!f.description.trim() || !(Number(f.amount) > 0)) { alert('กรอกรายการและจำนวนเงินก่อน'); return }
+    setSaving(true)
+    try {
+      await fetch('/api/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...f, amount: Number(f.amount) || 0 }),
+      })
+      onSaved()
+    } catch {
+      setSaving(false)
+      alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
+  }
+
+  const inp: React.CSSProperties = { width: '100%', height: 40, border: '1px solid #e4e8ec', borderRadius: 10, padding: '0 12px', fontSize: 14, color: '#2f3b45', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+  const lbl: React.CSSProperties = { fontSize: 12.5, color: '#7a8893', marginBottom: 6 }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.4)', zIndex: 60, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 560, maxWidth: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 24px 60px rgba(30,45,60,.28)', overflow: 'hidden', margin: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f0f2f5' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45' }}>เพิ่มรายจ่าย</div>
+          <div onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>close</span>
+          </div>
+        </div>
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>วันที่</div><input type="date" value={f.date} onChange={e => set('date', e.target.value)} style={inp} /></div>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>จำนวนเงิน (บาท) <span style={{ color: '#c4593f' }}>*</span></div><input type="number" value={f.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" style={{ ...inp, textAlign: 'right', fontFamily: "'IBM Plex Sans', sans-serif" }} /></div>
+          </div>
+          <div><div style={lbl}>รายการ <span style={{ color: '#c4593f' }}>*</span></div><input value={f.description} onChange={e => set('description', e.target.value)} placeholder="เช่น ค่าพิมพ์กล่อง, ค่าฟรีแลนซ์" style={inp} /></div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>หมวดหมู่รายจ่าย</div><select value={f.category} onChange={e => set('category', e.target.value)} style={inp}>{EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>ผู้ขาย / Supplier</div><input value={f.supplier} onChange={e => set('supplier', e.target.value)} placeholder="ชื่อร้าน/ผู้ขาย" style={inp} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>เลขที่เอกสารอ้างอิง</div><input value={f.refNo} onChange={e => set('refNo', e.target.value)} placeholder="เลขที่ใบเสร็จ/ใบกำกับ" style={inp} /></div>
+            <div style={{ flex: 1, minWidth: 180 }}><div style={lbl}>วิธีชำระเงิน</div><select value={f.payMethod} onChange={e => set('payMethod', e.target.value)} style={inp}>{PAY_METHODS.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
+          </div>
+          <div><div style={lbl}>บัญชีธนาคารที่ใช้จ่าย</div><select value={f.bankAccount} onChange={e => set('bankAccount', e.target.value)} style={inp}><option value="">— ไม่ระบุ —</option>{banks.map((b, i) => <option key={i} value={`${b.bank} · ${b.accountNo}`}>{b.bank} · {b.accountNo}</option>)}</select></div>
+          <div><div style={lbl}>หมายเหตุ</div><textarea value={f.note} onChange={e => set('note', e.target.value)} placeholder="รายละเอียดเพิ่มเติม" style={{ ...inp, height: 'auto', minHeight: 60, padding: '10px 12px', resize: 'vertical', lineHeight: 1.5 }} /></div>
+          <div>
+            <div style={lbl}>แนบไฟล์ใบเสร็จ / ใบกำกับภาษี</div>
+            {f.receiptUrl ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 11, border: '1px solid #d6e7dd', borderRadius: 11, background: '#f7faf8' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={f.receiptUrl} alt="receipt" style={{ width: 46, height: 46, borderRadius: 8, objectFit: 'cover' }} />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3d8a64', fontWeight: 600 }}><span className="material-symbols-rounded" style={{ fontSize: 17 }}>check_circle</span>แนบไฟล์แล้ว</div>
+                <div onClick={() => set('receiptUrl', '')} style={{ cursor: 'pointer' }}><span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span></div>
+              </div>
+            ) : (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 13, border: '1.5px dashed #c9d7cf', borderRadius: 11, cursor: 'pointer', background: '#f7faf8' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 23, color: '#5f9b78' }}>add_photo_alternate</span>
+                <span style={{ fontSize: 13, color: '#3d6a52', fontWeight: 600 }}>แนบรูปใบเสร็จ / ใบกำกับภาษี</span>
+                <input type="file" accept="image/*" onChange={handleReceipt} style={{ display: 'none' }} />
+              </label>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 9, padding: '16px 22px', borderTop: '1px solid #f0f2f5' }}>
+          <div onClick={onClose} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 44, border: '1px solid #e4e8ec', borderRadius: 11, fontSize: 14, color: '#5b6b77', fontWeight: 500, cursor: 'pointer' }}>ยกเลิก</div>
+          <button onClick={save} disabled={saving} style={{ flex: 1.4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 44, borderRadius: 11, background: '#5f7d99', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', border: 'none', fontFamily: 'inherit' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 19 }}>save</span>{saving ? 'กำลังบันทึก...' : 'บันทึกรายจ่าย'}
+          </button>
         </div>
       </div>
     </div>

@@ -17,6 +17,19 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const expense = await prisma.expense.create({ data: body })
+  const expense = await prisma.expense.create({
+    data: {
+      description: String(body.description || ''),
+      amount: Number(body.amount) || 0,
+      category: String(body.category || 'อื่น ๆ'),
+      date: String(body.date || ''),
+      supplier: body.supplier || null,
+      refNo: body.refNo || null,
+      payMethod: body.payMethod || null,
+      bankAccount: body.bankAccount || null,
+      note: body.note || null,
+      receiptUrl: body.receiptUrl || null,
+    },
+  })
   return NextResponse.json(expense)
 }
