@@ -35,6 +35,13 @@ interface DocumentRef {
   id: string
   no: string
   clientName?: string
+  clientAddress?: string
+  clientTaxId?: string
+  clientContact?: string
+  clientPhone?: string
+  items?: string | Item[]
+  discount?: number
+  vatEnabled?: boolean
 }
 
 interface BankAccount {
@@ -233,6 +240,25 @@ function NewDocumentForm() {
     }))
   }
 
+  function handleRefInvoiceChange(id: string) {
+    const inv = refInvoices.find(x => x.id === id)
+    if (!inv) { setField('refInvoiceId', id); return }
+    let items: Item[] = []
+    try { items = typeof inv.items === 'string' ? JSON.parse(inv.items) : (inv.items || []) } catch {}
+    setForm(f => ({
+      ...f,
+      refInvoiceId: id,
+      clientName: inv.clientName || f.clientName,
+      clientAddress: inv.clientAddress || f.clientAddress,
+      clientTaxId: inv.clientTaxId || f.clientTaxId,
+      clientContact: inv.clientContact || f.clientContact,
+      clientPhone: inv.clientPhone || f.clientPhone,
+      items: items.length > 0 ? items : f.items,
+      discount: inv.discount ?? f.discount,
+      vatEnabled: inv.vatEnabled ?? f.vatEnabled,
+    }))
+  }
+
   function updateItem(idx: number, key: keyof Item, value: string | number) {
     setForm(f => {
       const items = [...f.items]
@@ -374,7 +400,7 @@ function NewDocumentForm() {
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={fieldLabel}>{refLabel}</div>
                 {docType === 'receipt' ? (
-                  <select value={form.refInvoiceId} onChange={e => setField('refInvoiceId', e.target.value)} style={qInput}>
+                  <select value={form.refInvoiceId} onChange={e => handleRefInvoiceChange(e.target.value)} style={qInput}>
                     <option value="">— ไม่ระบุ —</option>
                     {refInvoices.map(d => <option key={d.id} value={d.id}>{d.no} · {d.clientName || '—'}</option>)}
                   </select>
