@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 interface Project {
@@ -52,6 +52,7 @@ const TABS = ['ข้อมูลลูกค้า', 'โปรเจกต์'
 
 export default function CustomerDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const id = params?.id as string
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
@@ -157,6 +158,7 @@ export default function CustomerDetailPage() {
 
         {/* Edit Button */}
         <button
+          onClick={() => router.push(`/customers/${id}/edit`)}
           style={{
             display: 'flex',
             alignItems: 'center',
