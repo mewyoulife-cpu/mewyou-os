@@ -131,7 +131,9 @@ export default function DocumentDoc(props: DocumentDocProps) {
   const sigLeftEn = isReceipt ? '/ Received By' : isTaxInvoice ? '/ Issued By' : '/ Issued By'
   const sigRightTh = isReceipt ? 'ผู้จ่ายเงิน' : isTaxInvoice ? 'ผู้รับเอกสาร' : 'ผู้รับวางบิล'
   const sigRightEn = isReceipt ? '/ Paid By' : isTaxInvoice ? '/ Received By' : '/ Received By'
-  const showBank = !isReceipt
+  // Payment Information appears only on documents used to collect payment (Invoice).
+  // Tax Invoice and Receipt do not show it.
+  const showBank = type === 'invoice'
 
   return (
     <>
@@ -449,15 +451,24 @@ export default function DocumentDoc(props: DocumentDocProps) {
         </div>
       )}
 
-      {/* 8. Signatures */}
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 38 }}>
-        <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+      {/* 8. Signatures + company stamp */}
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 38, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div style={{ flex: '1 1 140px', textAlign: 'center' }}>
           <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>{sigLeftTh} <span style={{ color: '#a3aeb8' }}>{sigLeftEn}</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
           <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>{co.name}</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{issueDate}</div>
         </div>
-        <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+
+        {/* Company stamp area (round or square), centred between the signatures */}
+        <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ fontSize: 11.5, color: '#6a7884', marginBottom: 8 }}>ตราประทับบริษัท <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
+          <div style={{ width: '55mm', height: '55mm', maxWidth: 200, maxHeight: 200, border: '1.5px dashed #c4cdd5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 11, color: '#c8d2da' }}>ประทับตราที่นี่</span>
+          </div>
+        </div>
+
+        <div style={{ flex: '1 1 140px', textAlign: 'center' }}>
           <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>{sigRightTh} <span style={{ color: '#a3aeb8' }}>{sigRightEn}</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
           <div style={{ fontSize: 12.5, color: '#c4cdd5' }}>&nbsp;</div>
