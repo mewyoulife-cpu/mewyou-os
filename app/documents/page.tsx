@@ -18,6 +18,7 @@ interface RawDoc {
   discount?: number
   vatEnabled?: boolean
   customer?: { name?: string; company?: string } | null
+  createdAt?: string
   // tax-invoice delivery tracking
   txEmailSent?: boolean
   txPostSent?: boolean
@@ -37,6 +38,7 @@ interface Row {
   amount: number
   status: string
   href: string
+  dateObj: Date | null
 }
 
 const typeConfig: Record<TypeKey, { label: string; icon: string; bg: string; color: string }> = {
@@ -85,6 +87,70 @@ function calcAmount(doc: RawDoc): number {
 
 function fmt(n: number) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Parse a document's issue date (Thai "D/MM/YYYY" Buddhist-era or ISO), falling
+// back to the DB createdAt timestamp so every row is filterable.
+function parseDocDate(issue?: string, createdAt?: string): Date | null {
+  if (issue) {
+    const m = issue.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/)
+    if (m) {
+      let y = parseInt(m[3], 10)
+      if (y < 100) y += 2000
+      if (y > 2400) y -= 543 // Buddhist-era → CE
+      const d = new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10))
+      if (!isNaN(d.getTime())) return d
+    }
+    const iso = new Date(issue)
+    if (!isNaN(iso.getTime())) return iso
+  }
+  if (createdAt) {
+    const c = new Date(createdAt)
+    if (!isNaN(c.getTime())) return c
+  }
+  return null
+}
+
+type DatePreset = 'all' | 'today' | '7d' | '30d' | 'thismonth' | 'lastmonth' | 'thisyear' | 'custom'
+
+const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'today',     label: 'วันนี้' },
+  { key: '7d',        label: '7 วันล่าสุด' },
+  { key: '30d',       label: '30 วันล่าสุด' },
+  { key: 'thismonth', label: 'เดือนนี้' },
+  { key: 'lastmonth', label: 'เดือนก่อน' },
+  { key: 'thisyear',  label: 'ปีนี้' },
+  { key: 'custom',    label: 'กำหนดเอง' },
+]
+
+function pad2(n: number) { return String(n).padStart(2, '0') }
+function toInputDate(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` }
+
+// Returns the start/end input strings (yyyy-mm-dd) for a preset.
+function rangeForPreset(p: DatePreset): { start: string; end: string } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  switch (p) {
+    case 'today':
+      return { start: toInputDate(now), end: toInputDate(now) }
+    case '7d': {
+      const s = new Date(now); s.setDate(s.getDate() - 6)
+      return { start: toInputDate(s), end: toInputDate(now) }
+    }
+    case '30d': {
+      const s = new Date(now); s.setDate(s.getDate() - 29)
+      return { start: toInputDate(s), end: toInputDate(now) }
+    }
+    case 'thismonth':
+      return { start: toInputDate(new Date(y, m, 1)), end: toInputDate(new Date(y, m + 1, 0)) }
+    case 'lastmonth':
+      return { start: toInputDate(new Date(y, m - 1, 1)), end: toInputDate(new Date(y, m, 0)) }
+    case 'thisyear':
+      return { start: toInputDate(new Date(y, 0, 1)), end: toInputDate(new Date(y, 11, 31)) }
+    default:
+      return { start: '', end: '' }
+  }
 }
 
 function normalizeDocType(t?: string): TypeKey {
@@ -137,25 +203,38 @@ export default function DocumentsPage() {
   const [activeChip, setActiveChip] = useState<'all' | TypeKey>('all')
   const [trackId, setTrackId] = useState<string | null>(null)
   const [chooserOpen, setChooserOpen] = useState(false)
+  // Date filter
+  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/quotations').then(r => r.json()).catch(() => []),
-      fetch('/api/documents').then(r => r.json()).catch(() => []),
-    ]).then(([quotations, documents]) => {
-      setQuotationRows((Array.isArray(quotations) ? quotations : []).map((q: RawDoc) => ({
-        id: q.id,
-        no: q.no,
-        typeKey: 'quotation' as TypeKey,
-        customerName: custName(q),
-        date: q.issueDate,
-        amount: calcAmount(q),
-        status: q.status,
-        href: `/quotation/${q.id}`,
-      })))
-      setRawDocs(Array.isArray(documents) ? documents : [])
-      setLoading(false)
-    })
+    let active = true
+    function load() {
+      Promise.all([
+        fetch('/api/quotations').then(r => r.json()).catch(() => []),
+        fetch('/api/documents').then(r => r.json()).catch(() => []),
+      ]).then(([quotations, documents]) => {
+        if (!active) return
+        setQuotationRows((Array.isArray(quotations) ? quotations : []).map((q: RawDoc) => ({
+          id: q.id,
+          no: q.no,
+          typeKey: 'quotation' as TypeKey,
+          customerName: custName(q),
+          date: q.issueDate,
+          amount: calcAmount(q),
+          status: q.status,
+          href: `/quotation/${q.id}`,
+          dateObj: parseDocDate(q.issueDate, q.createdAt),
+        })))
+        setRawDocs(Array.isArray(documents) ? documents : [])
+        setLoading(false)
+      })
+    }
+    load()
+    // Real-time: poll so newly created documents appear automatically.
+    const timer = setInterval(load, 15000)
+    return () => { active = false; clearInterval(timer) }
   }, [])
 
   const docRows: Row[] = rawDocs.map(d => ({
@@ -167,10 +246,37 @@ export default function DocumentsPage() {
     amount: calcAmount(d),
     status: d.status,
     href: `/documents/${d.id}`,
+    dateObj: parseDocDate(d.issueDate, d.createdAt),
   }))
   const rows: Row[] = [...quotationRows, ...docRows]
 
-  const filtered = activeChip === 'all' ? rows : rows.filter(r => r.typeKey === activeChip)
+  function applyPreset(p: DatePreset) {
+    setDatePreset(p)
+    if (p === 'all') { setStartDate(''); setEndDate(''); return }
+    if (p === 'custom') return // keep whatever is in the inputs
+    const r = rangeForPreset(p)
+    setStartDate(r.start)
+    setEndDate(r.end)
+  }
+  function clearDateFilter() {
+    setDatePreset('all')
+    setStartDate('')
+    setEndDate('')
+  }
+
+  const rangeStart = datePreset !== 'all' && startDate ? new Date(startDate + 'T00:00:00') : null
+  const rangeEnd = datePreset !== 'all' && endDate ? new Date(endDate + 'T23:59:59.999') : null
+  const hasDateFilter = !!(rangeStart || rangeEnd)
+  const inRange = (d: Date | null) => {
+    if (!hasDateFilter) return true
+    if (!d) return false
+    if (rangeStart && d < rangeStart) return false
+    if (rangeEnd && d > rangeEnd) return false
+    return true
+  }
+
+  const dateScoped = rows.filter(r => inRange(r.dateObj))
+  const filtered = activeChip === 'all' ? dateScoped : dateScoped.filter(r => r.typeKey === activeChip)
   const taxDocs = rawDocs.filter(d => normalizeDocType(d.type) === 'tax_invoice')
   const txDelivered = taxDocs.filter(isDelivered).length
   const txPending = taxDocs.length - txDelivered
@@ -213,7 +319,7 @@ export default function DocumentsPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
             {TYPE_CHIPS.map(chip => {
               const active = activeChip === chip.key
-              const count = chip.key === 'all' ? rows.length : rows.filter(r => r.typeKey === chip.key).length
+              const count = chip.key === 'all' ? dateScoped.length : dateScoped.filter(r => r.typeKey === chip.key).length
               return (
                 <div key={chip.key} onClick={() => setActiveChip(chip.key)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 15px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 500, background: active ? '#5f7d99' : '#fff', color: active ? '#fff' : '#7a8893', border: active ? '1px solid #5f7d99' : '1px solid #edf0f3', transition: 'all .15s' }}>
                   {chip.label}
@@ -221,6 +327,60 @@ export default function DocumentsPage() {
                 </div>
               )
             })}
+          </div>
+
+          {/* Date filter bar */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '14px 16px', marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#5b6b77', fontSize: 13, fontWeight: 600 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#5f7d99' }}>event</span>
+                กรองตามวันที่เอกสาร
+              </div>
+
+              {/* Date range pickers */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => { setStartDate(e.target.value); setDatePreset('custom') }}
+                  style={{ border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 11px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#2f3b45', outline: 'none', background: '#fff' }}
+                />
+                <span style={{ color: '#9aa7b2', fontSize: 13 }}>–</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => { setEndDate(e.target.value); setDatePreset('custom') }}
+                  style={{ border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 11px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#2f3b45', outline: 'none', background: '#fff' }}
+                />
+              </div>
+
+              {hasDateFilter && (
+                <div onClick={clearDateFilter} style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto', height: 38, padding: '0 13px', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#c4593f', background: '#fceee8', border: '1px solid #f6dfd6' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 17 }}>close</span>
+                  ล้างตัวกรอง
+                </div>
+              )}
+            </div>
+
+            {/* Preset buttons */}
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 12 }}>
+              {DATE_PRESETS.map(p => {
+                const active = datePreset === p.key
+                return (
+                  <div key={p.key} onClick={() => applyPreset(p.key)} style={{ padding: '6px 13px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: active ? 600 : 500, border: active ? '1.5px solid #5f7d99' : '1.5px solid #e4e8ec', background: active ? '#e8eef4' : '#fff', color: active ? '#5f7d99' : '#7a8893', transition: 'all .15s' }}>
+                    {p.label}
+                  </div>
+                )
+              })}
+            </div>
+
+            {hasDateFilter && (
+              <div style={{ marginTop: 11, fontSize: 12.5, color: '#7a8893' }}>
+                แสดง {filtered.length} เอกสาร
+                {startDate && <> · ตั้งแต่ {startDate}</>}
+                {endDate && <> ถึง {endDate}</>}
+              </div>
+            )}
           </div>
 
           {/* Document table card */}
@@ -241,8 +401,17 @@ export default function DocumentsPage() {
             ) : filtered.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 56, color: '#9aa7b2' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 44, display: 'block', marginBottom: 10, color: '#d0d8e0' }}>folder_open</span>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#7a8893', marginBottom: 4 }}>ยังไม่มีเอกสาร</div>
-                <div style={{ fontSize: 13 }}>กดปุ่ม &quot;สร้างเอกสาร&quot; เพื่อเริ่มต้น</div>
+                {hasDateFilter ? (
+                  <>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#7a8893', marginBottom: 4 }}>ไม่พบเอกสารในช่วงวันที่ที่เลือก</div>
+                    <div onClick={clearDateFilter} style={{ fontSize: 13, color: '#5f7d99', fontWeight: 600, cursor: 'pointer' }}>ล้างตัวกรอง</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#7a8893', marginBottom: 4 }}>ยังไม่มีเอกสาร</div>
+                    <div style={{ fontSize: 13 }}>กดปุ่ม &quot;สร้างเอกสาร&quot; เพื่อเริ่มต้น</div>
+                  </>
+                )}
               </div>
             ) : (
               filtered.map(row => {
