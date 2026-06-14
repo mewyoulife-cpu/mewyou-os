@@ -338,6 +338,18 @@ export default function DocumentDoc(props: DocumentDocProps) {
           <div style={{ fontSize: 15, fontWeight: 700, color: '#3a4654', marginBottom: 14 }}>
             สรุป <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 13 }}>/ Summary</span>
           </div>
+          {(discount || 0) > 0 && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772', marginBottom: 8 }}>
+                <span>ราคารวมก่อนหักส่วนลด</span>
+                <span style={{ fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(sub)} บาท</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#c4593f', fontWeight: 600, marginBottom: 11 }}>
+                <span>ส่วนลด / Discount</span>
+                <span style={{ fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>-{fmt(discount || 0)} บาท</span>
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772', marginBottom: 11 }}>
             <span>มูลค่ารายการ (หลังหักส่วนลด)</span>
             <span style={{ fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(afterDiscount)} บาท</span>
