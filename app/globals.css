@@ -5,3 +5,8 @@
 ::-webkit-scrollbar-thumb { background: #cdd6df; border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 .material-symbols-rounded { font-feature-settings: 'liga'; -webkit-font-feature-settings: 'liga'; font-variant-ligatures: normal; line-height: 1; }
+
+/* Login page: hide the decorative left panel on small screens */
+@media (max-width: 880px) {
+  .login-aside { display: none !important; }
+}
