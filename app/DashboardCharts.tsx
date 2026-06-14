@@ -20,7 +20,17 @@ interface Props {
 
 function formatYAxis(value: number) {
   if (value === 0) return '0'
+  if (value >= 1_000_000) return (value / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   return (value / 1000).toFixed(0) + 'K'
+}
+
+// Round a max value up to a "nice" axis ceiling so the line never touches the top.
+function niceCeil(max: number): number {
+  if (max <= 0) return 1000
+  const pow = Math.pow(10, Math.floor(Math.log10(max)))
+  const n = max / pow
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10
+  return step * pow
 }
 
 export default function DashboardCharts({ donutData, salesData, salesMonths, mode }: Props) {
@@ -81,27 +91,33 @@ export default function DashboardCharts({ donutData, salesData, salesMonths, mod
 
   // Line chart mode
   const lineData = salesData.map((value, i) => ({ month: salesMonths[i], value }))
+  const axisMax = niceCeil(Math.max(...salesData, 0))
+  const tickCount = 5
+  const yTicks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round((axisMax / tickCount) * i))
 
-  const CustomDot = (props: { cx?: number; cy?: number; index?: number }) => {
+  const lastIndex = salesData.length - 1
+  // Highlight only the final point. Passed as a function (not a JSX element) so
+  // it isn't treated as a component declared during render.
+  const renderDot = (props: { cx?: number; cy?: number; index?: number }) => {
     const { cx, cy, index } = props
-    if (index === salesData.length - 1) {
-      return <circle cx={cx} cy={cy} r={5} fill="#5f7d99" stroke="#fff" strokeWidth={2} />
+    if (index === lastIndex) {
+      return <circle key={index} cx={cx} cy={cy} r={5} fill="#5f7d99" stroke="#fff" strokeWidth={2} />
     }
-    return null
+    return <g key={index} />
   }
 
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={lineData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#edf0f3" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#7a8893' }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#7a8893' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={18} />
         <YAxis
           tickFormatter={formatYAxis}
           tick={{ fontSize: 11, fill: '#7a8893' }}
           axisLine={false}
           tickLine={false}
-          ticks={[0, 100000, 200000, 300000, 400000, 500000]}
-          domain={[0, 500000]}
+          ticks={yTicks}
+          domain={[0, axisMax]}
           width={40}
         />
         <Tooltip
@@ -114,7 +130,7 @@ export default function DashboardCharts({ donutData, salesData, salesMonths, mod
           dataKey="value"
           stroke="#5f7d99"
           strokeWidth={2.5}
-          dot={<CustomDot />}
+          dot={renderDot}
           activeDot={{ r: 5, fill: '#5f7d99', stroke: '#fff', strokeWidth: 2 }}
         />
       </LineChart>

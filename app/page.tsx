@@ -1,9 +1,12 @@
-export const dynamic = 'force-dynamic'
+'use client'
 
-import { prisma } from '@/lib/prisma'
-import { documentTotal } from '@/lib/customerStats'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import DashboardCharts from './DashboardCharts'
+import DateRangeFilter, { type RangeState } from '@/components/DateRangeFilter'
+import { resolveRange } from '@/lib/dateRanges'
+
+const STORAGE_KEY = 'mewyou_dash_range'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc' },
@@ -31,19 +34,9 @@ function fmt(n: number) {
 }
 
 function getThaiBuddhistDate(date: Date): string {
-  const months = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-  ]
+  const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
   const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
   return `วัน${days[date.getDay()]}ที่ ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`
-}
-
-function toDateStr(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
 }
 
 function getWeekDays(today: Date) {
@@ -59,22 +52,6 @@ function getWeekDays(today: Date) {
   })
 }
 
-const THAI_SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-
-function monthKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}`
-}
-
-function trendPill(cur: number, prev: number) {
-  const up = cur >= prev
-  const pct = prev > 0 ? Math.round(((cur - prev) / prev) * 100) : (cur > 0 ? 100 : 0)
-  return {
-    up,
-    trend: `${pct >= 0 ? '+' : ''}${pct}%`,
-    trendIcon: up ? 'trending_up' : 'trending_down',
-  }
-}
-
 function relativeTime(from: Date, now: Date): string {
   const diffMs = now.getTime() - from.getTime()
   const mins = Math.floor(diffMs / 60000)
@@ -86,372 +63,174 @@ function relativeTime(from: Date, now: Date): string {
   return `${days} วันก่อน`
 }
 
-interface KpiCard {
-  icon: string
-  label: string
-  value: string
-  unit: string
-  trend?: string
-  trendIcon?: string
-  up?: boolean
+interface Kpi { value: number; up: boolean; pct: string }
+interface DashboardData {
+  kpis: { projects: Kpi; waitingDesign: Kpi; completed: Kpi; sales: Kpi; outstanding: Kpi }
+  donut: { design: number; deliver: number; revision: number; approved: number; completed: number }
+  salesChart: { labels: string[]; data: number[] }
+  recentProjects: { id: string; code: string; customerName: string; customerLogo: string | null; type: string; status: string; dueDate: string | null; value: number }[]
+  leaks: { type: string; tier: string; tierBg: string; tierColor: string; icon: string; iconColor: string; cust: string; action: string; amount: number }[]
+  tasks: { label: string; count: number; countColor: string; countBg: string }[]
+  schedule: { title: string; sub: string }[]
+  pendingSend: { total: number; docs: { no: string; clientName: string; issueDate: string; total: number }[] }
+  activities: { icon: string; iconBg: string; iconColor: string; title: string; ts: string }[]
 }
 
-interface PriorityTask {
-  label: string
-  count: number
-  countColor: string
-  countBg: string
-}
+const card: React.CSSProperties = { background: '#fff', borderRadius: 18, border: '1px solid #edf0f3' }
 
-interface LeakItem {
-  type: string
-  tier: string
-  tierBg: string
-  tierColor: string
-  icon: string
-  iconBg: string
-  iconColor: string
-  cust: string
-  action: string
-  amount: number
-}
+const emptyState = (icon: string, text: string) => (
+  <div style={{ padding: '24px 12px', textAlign: 'center', color: '#9aa7b2', fontSize: 13 }}>
+    <span className="material-symbols-rounded" style={{ fontSize: 30, display: 'block', marginBottom: 6, color: '#cdd6df' }}>{icon}</span>
+    {text}
+  </div>
+)
 
-interface ScheduleItem {
-  time: string
-  title: string
-  sub: string
-  sortKey: number
-}
-
-interface ActivityItem {
-  icon: string
-  iconBg: string
-  iconColor: string
-  title: string
-  ts: Date
-}
-
-export default async function DashboardPage() {
+export default function DashboardPage() {
   const today = new Date()
   const todayStr = getThaiBuddhistDate(today)
-  const todayKey = toDateStr(today)
   const weekDays = getWeekDays(today)
 
-  const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const startOfSixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
+  const [range, setRange] = useState<RangeState>({ preset: 'this_month' })
+  const [data, setData] = useState<DashboardData | null>(null)
 
-  const sevenDaysAhead = new Date(today)
-  sevenDaysAhead.setDate(today.getDate() + 7)
+  // Hydrate the persisted filter once on mount (avoids SSR mismatch).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from persisted storage
+      if (raw) setRange(JSON.parse(raw))
+    } catch { /* ignore */ }
+  }, [])
 
-  const WAITING_DESIGN_STATUSES = ['design']
+  const fetchData = useCallback(async () => {
+    const { from, to } = resolveRange(range.preset, range.customFrom, range.customTo)
+    try {
+      const res = await fetch(`/api/dashboard?from=${from.toISOString()}&to=${to.toISOString()}`, { cache: 'no-store' })
+      if (res.ok) setData(await res.json())
+    } catch { /* keep last data */ }
+  }, [range])
 
-  const [
-    projectCount,
-    projectsThisMonth,
-    projectsLastMonth,
-    waitingDesignCount,
-    waitingDesignThisMonth,
-    waitingDesignLastMonth,
-    completedCount,
-    completedThisMonth,
-    completedLastMonth,
-    recentProjects,
-    statusGroups,
-    nonCompletedProjects,
-    incomeProjects,
-    outstandingDocs,
-    outstandingDocsThisMonth,
-    outstandingDocsLastMonth,
-    pendingSendDocs,
-    sentQuotations,
-    paymentProjects,
-    draftBillingDocs,
-    todayNotes,
-    todayDueProjects,
-    activityProjects,
-    activityDocuments,
-    activityQuotations,
-  ] = await Promise.all([
-    prisma.project.count(),
-    prisma.project.count({ where: { createdAt: { gte: startOfThisMonth } } }),
-    prisma.project.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES } } }),
-    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES }, createdAt: { gte: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: { in: WAITING_DESIGN_STATUSES }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: 'completed' } }),
-    prisma.project.count({ where: { status: 'completed', createdAt: { gte: startOfThisMonth } } }),
-    prisma.project.count({ where: { status: 'completed', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.project.findMany({
-      include: { customer: true },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    }),
-    prisma.project.groupBy({ by: ['status'], _count: true }),
-    prisma.project.findMany({
-      where: { status: { not: 'completed' } },
-      select: { name: true, dueDate: true, value: true, status: true },
-    }),
-    prisma.project.findMany({
-      select: { value: true, createdAt: true },
-    }),
-    prisma.document.findMany({
-      where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] } },
-      select: { items: true, discount: true, vatEnabled: true },
-    }),
-    prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfThisMonth } } }),
-    prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
-    prisma.document.findMany({
-      where: { type: 'taxinvoice', txEmailSent: false, txPostSent: false },
-      orderBy: { createdAt: 'asc' },
-      take: 5,
-      select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
-    }),
-    prisma.quotation.findMany({
-      where: { status: 'sent' },
-      select: { items: true, discount: true, vatEnabled: true },
-    }),
-    prisma.project.findMany({
-      where: { status: 'payment' },
-      select: { value: true },
-    }),
-    prisma.document.findMany({
-      where: { type: { in: ['invoice', 'taxinvoice'] }, status: 'draft' },
-      select: { items: true, discount: true, vatEnabled: true },
-    }),
-    prisma.calendarNote.findMany({ where: { date: todayKey } }),
-    prisma.project.findMany({ where: { dueDate: todayKey }, select: { name: true } }),
-    prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { name: true, createdAt: true } }),
-    prisma.document.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { no: true, type: true, createdAt: true, updatedAt: true } }),
-    prisma.quotation.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { no: true, createdAt: true } }),
-  ])
+  // Refetch + persist whenever the filter changes.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch updates state after await, syncing the dashboard to the selected range
+    fetchData()
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(range)) } catch { /* ignore */ }
+  }, [range, fetchData])
 
-  // ---- Sales: this month, last month, and 6-month series from project value ----
-  let salesThisMonth = 0
-  let salesLastMonth = 0
-  const monthlyTotals = new Map<string, number>()
-  for (const proj of incomeProjects) {
-    const amount = proj.value
-    const created = proj.createdAt
-    if (created >= startOfThisMonth) salesThisMonth += amount
-    else if (created >= startOfLastMonth && created < startOfThisMonth) salesLastMonth += amount
-    if (created >= startOfSixMonthsAgo) {
-      const key = monthKey(created)
-      monthlyTotals.set(key, (monthlyTotals.get(key) || 0) + amount)
-    }
-  }
+  // Real-time: poll every 12s and refetch when the tab regains focus.
+  useEffect(() => {
+    const id = setInterval(fetchData, 12000)
+    const onVis = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+  }, [fetchData])
 
-  const salesMonths: string[] = []
-  const salesData: number[] = []
-  for (let i = 5; i >= 0; i--) {
-    const m = new Date(today.getFullYear(), today.getMonth() - i, 1)
-    salesMonths.push(THAI_SHORT_MONTHS[m.getMonth()])
-    salesData.push(Math.round(monthlyTotals.get(monthKey(m)) || 0))
-  }
-
-  // ---- Outstanding total ----
-  const outstandingTotal = outstandingDocs.reduce((s, d) => s + documentTotal(d), 0)
-
-  // ---- KPI cards (design order, all real data, all with trend pills) ----
-  const projectTrend = trendPill(projectsThisMonth, projectsLastMonth)
-  const waitingDesignTrend = trendPill(waitingDesignThisMonth, waitingDesignLastMonth)
-  const completedTrend = trendPill(completedThisMonth, completedLastMonth)
-  const salesTrend = trendPill(salesThisMonth, salesLastMonth)
-  const outstandingTrend = trendPill(outstandingDocsThisMonth, outstandingDocsLastMonth)
-
-  const kpis: KpiCard[] = [
-    { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', ...projectTrend },
-    { icon: 'draw', label: 'กำลังรอออกแบบ', value: String(waitingDesignCount), unit: 'โปรเจกต์', ...waitingDesignTrend },
-    { icon: 'task_alt', label: 'งานเสร็จสิ้นแล้ว', value: String(completedCount), unit: 'โปรเจกต์', ...completedTrend },
-    { icon: 'payments', label: 'ยอดขายรวม (เดือนนี้)', value: salesThisMonth > 0 ? fmtShort(Math.round(salesThisMonth)) : '฿0', unit: '', ...salesTrend },
-    { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '', ...outstandingTrend },
-  ]
-
-  // ---- Donut ----
-  const countByStatus = (status: string) => statusGroups.find(g => g.status === status)?.['_count'] ?? 0
-  const donutData = [
-    { label: 'ออกแบบ',    value: countByStatus('design'),    color: '#2f3b45' },
-    { label: 'ผลิต',      value: countByStatus('deliver'),   color: '#5f7d99' },
-    { label: 'รออนุมัติ', value: countByStatus('revision'),  color: '#3d8a64' },
-    { label: 'รอผลิต',    value: countByStatus('approved'),  color: '#b0bdc8' },
-    { label: 'เสร็จสิ้น', value: countByStatus('completed'), color: '#c4a882' },
-  ]
-
-  // ---- Pending tax-invoice card total ----
-  const pendingSendTotal = pendingSendDocs.reduce((s, d) => s + documentTotal(d), 0)
-
-  // ---- Priority leak items (rich ranked, real data) ----
-  const overdueProjects = nonCompletedProjects.filter(p => p.dueDate && p.dueDate < todayKey)
-  const overdueValue = overdueProjects.reduce((s, p) => s + p.value, 0)
-  const quotationSentTotal = sentQuotations.reduce((s, q) => s + documentTotal(q), 0)
-  const depositValue = paymentProjects.reduce((s, p) => s + p.value, 0)
-  const draftBillingTotal = draftBillingDocs.reduce((s, d) => s + documentTotal(d), 0)
-
-  const leakCandidates: LeakItem[] = [
-    {
-      type: 'หนี้ค้างชำระ', tier: 'ด่วนที่สุด', tierBg: '#fbe9e5', tierColor: '#c4593f',
-      icon: 'schedule', iconBg: '#fbe9e5', iconColor: '#c4593f',
-      cust: `${outstandingDocs.length} รายการ`, action: 'โทรทวง / ส่งใบแจ้งเตือน', amount: outstandingTotal,
-    },
-    {
-      type: 'ใบเสนอราคาค้างตอบ', tier: 'ด่วนมาก', tierBg: '#fdeee9', tierColor: '#d97b53',
-      icon: 'mail', iconBg: '#fdeee9', iconColor: '#d97b53',
-      cust: `${sentQuotations.length} ใบ`, action: 'ติดตามลูกค้า', amount: quotationSentTotal,
-    },
-    {
-      type: 'งานเลยกำหนดส่ง', tier: 'ด่วนมาก', tierBg: '#fdeee9', tierColor: '#d97b53',
-      icon: 'update', iconBg: '#fdeee9', iconColor: '#d97b53',
-      cust: `${overdueProjects.length} งาน`, action: 'เร่งส่งมอบงาน', amount: overdueValue,
-    },
-    {
-      type: 'รอเก็บมัดจำ', tier: 'ควรทำเร็ว', tierBg: '#e8eef4', tierColor: '#5f7d99',
-      icon: 'savings', iconBg: '#e8eef4', iconColor: '#5f7d99',
-      cust: `${paymentProjects.length} โปรเจกต์`, action: 'ออกใบแจ้งหนี้มัดจำ', amount: depositValue,
-    },
-    {
-      type: 'ใบกำกับฯ/ใบแจ้งหนี้ รอส่ง', tier: 'ปกติ', tierBg: '#ecebf8', tierColor: '#6760a8',
-      icon: 'article', iconBg: '#ecebf8', iconColor: '#6760a8',
-      cust: `${draftBillingDocs.length} ฉบับ`, action: 'ส่งให้ลูกค้า', amount: draftBillingTotal,
-    },
-  ]
-
-  const leakItems = leakCandidates
-    .filter(l => l.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5)
-
-  // ---- Tasks widget (count-based, real) ----
-  const priorityTasks: PriorityTask[] = ([
-    { label: 'ใบเสนอราคาค้างตอบ', count: sentQuotations.length, countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'งานเลยกำหนดส่ง', count: overdueProjects.length, countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'รอเก็บมัดจำ', count: paymentProjects.length, countColor: '#a9762f', countBg: '#fdf3e3' },
-    { label: 'Revision ค้างอยู่', count: nonCompletedProjects.filter(p => p.status === 'revision').length, countColor: '#5f7d99', countBg: '#e8eef4' },
-    { label: 'ใบแจ้งหนี้/ใบกำกับฯ รอส่ง', count: draftBillingDocs.length, countColor: '#6760a8', countBg: '#ecebf8' },
-  ] as PriorityTask[]).filter(t => t.count > 0).slice(0, 5)
-
-  // ---- Today's schedule ----
-  const schedule: ScheduleItem[] = [
-    ...todayNotes.map(n => ({
-      time: '',
-      title: n.text,
-      sub: n.priority === 'high' || n.priority === 'urgent' ? 'งานสำคัญ' : 'ปกติ',
-      sortKey: n.createdAt.getTime(),
-    })),
-    ...todayDueProjects.map(p => ({
-      time: '',
-      title: `ส่งงาน ${p.name}`,
-      sub: 'กำหนดส่งวันนี้',
-      sortKey: Number.MAX_SAFE_INTEGER,
-    })),
-  ]
-    .sort((a, b) => a.sortKey - b.sortKey)
-    .slice(0, 5)
-
-  // ---- Activity feed (real, merged & sorted) ----
-  const activities: ActivityItem[] = [
-    ...activityProjects.map(p => ({
-      icon: 'add_task', iconBg: '#e9f3ed', iconColor: '#3d8a64',
-      title: `สร้างโปรเจกต์ ${p.name}`, ts: p.createdAt,
-    })),
-    ...activityDocuments.map(d => {
-      const edited = d.updatedAt.getTime() - d.createdAt.getTime() > 60000
-      if (d.type === 'receipt') {
-        return { icon: 'payments', iconBg: '#fdf3e3', iconColor: '#f4a431', title: `รับชำระเงิน ${d.no}`, ts: d.createdAt }
-      }
-      return {
-        icon: 'description', iconBg: '#ecebf8', iconColor: '#6760a8',
-        title: edited ? `แก้ไขเอกสาร ${d.no}` : `สร้างเอกสาร ${d.no}`,
-        ts: edited ? d.updatedAt : d.createdAt,
-      }
-    }),
-    ...activityQuotations.map(q => ({
-      icon: 'request_quote', iconBg: '#ecebf8', iconColor: '#6760a8',
-      title: `สร้างใบเสนอราคา ${q.no}`, ts: q.createdAt,
-    })),
-  ]
-    .sort((a, b) => b.ts.getTime() - a.ts.getTime())
-    .slice(0, 5)
-
-  const card: React.CSSProperties = {
-    background: '#fff',
-    borderRadius: 18,
-    border: '1px solid #edf0f3',
-  }
-
-  const emptyState = (icon: string, text: string) => (
-    <div style={{ padding: '24px 12px', textAlign: 'center', color: '#9aa7b2', fontSize: 13 }}>
-      <span className="material-symbols-rounded" style={{ fontSize: 30, display: 'block', marginBottom: 6, color: '#cdd6df' }}>{icon}</span>
-      {text}
-    </div>
-  )
+  const rangeLabel = resolveRange(range.preset, range.customFrom, range.customTo).label
 
   return (
     <div style={{ color: '#2f3b45' }}>
-      {/* Greeting */}
-      <div style={{ margin: '14px 0 22px' }}>
-        <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45' }}>สวัสดี, Mew 👋</div>
-        <div style={{ fontSize: 14.5, color: '#7a8893', marginTop: 3 }}>
-          ยินดีต้อนรับเข้าสู่ระบบ Mewyou Design OS · {todayStr}
+      {/* Greeting + Date Range Filter */}
+      <div style={{ margin: '14px 0 22px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45' }}>สวัสดี, Mew 👋</div>
+          <div style={{ fontSize: 14.5, color: '#7a8893', marginTop: 3 }}>
+            ยินดีต้อนรับเข้าสู่ระบบ Mewyou Design OS · {todayStr}
+          </div>
         </div>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
+      {!data ? (
+        <div style={{ ...card, padding: 60, textAlign: 'center', color: '#9aa7b2', fontSize: 14 }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 38, display: 'block', marginBottom: 10, color: '#cdd6df' }}>hourglass_top</span>
+          กำลังโหลดข้อมูล...
+        </div>
+      ) : (
+        <DashboardBody data={data} rangeLabel={rangeLabel} weekDays={weekDays} todayStr={todayStr} now={today} />
+      )}
+    </div>
+  )
+}
+
+function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
+  data: DashboardData
+  rangeLabel: string
+  weekDays: { label: string; date: number; isToday: boolean }[]
+  todayStr: string
+  now: Date
+}) {
+  const k = data.kpis
+  const kpis = [
+    { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(k.projects.value), unit: 'โปรเจกต์', up: k.projects.up, trend: k.projects.pct },
+    { icon: 'draw', label: 'กำลังรอออกแบบ', value: String(k.waitingDesign.value), unit: 'โปรเจกต์', up: k.waitingDesign.up, trend: k.waitingDesign.pct },
+    { icon: 'task_alt', label: 'งานเสร็จสิ้นแล้ว', value: String(k.completed.value), unit: 'โปรเจกต์', up: k.completed.up, trend: k.completed.pct },
+    { icon: 'payments', label: 'ยอดขายรวม', value: k.sales.value > 0 ? fmtShort(k.sales.value) : '฿0', unit: '', up: k.sales.up, trend: k.sales.pct },
+    { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: k.outstanding.value > 0 ? fmtShort(k.outstanding.value) : '฿0', unit: '', up: k.outstanding.up, trend: k.outstanding.pct },
+  ]
+
+  const donutData = [
+    { label: 'ออกแบบ',    value: data.donut.design,    color: '#2f3b45' },
+    { label: 'ผลิต',      value: data.donut.deliver,   color: '#5f7d99' },
+    { label: 'รออนุมัติ', value: data.donut.revision,  color: '#3d8a64' },
+    { label: 'รอผลิต',    value: data.donut.approved,  color: '#b0bdc8' },
+    { label: 'เสร็จสิ้น', value: data.donut.completed, color: '#c4a882' },
+  ]
+
+  return (
+    <>
       {/* KPI Cards */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
-        {kpis.map((k) => (
-          <div key={k.label} style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
+        {kpis.map((kp) => (
+          <div key={kp.label} style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9fb0bf' }}>{k.icon}</span>
-              {k.label}
+              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9fb0bf' }}>{kp.icon}</span>
+              {kp.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-              <span style={{ fontSize: 29, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{k.value}</span>
-              {k.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{k.unit}</span>}
+              <span style={{ fontSize: 29, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{kp.value}</span>
+              {kp.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{kp.unit}</span>}
             </div>
-            {k.trend && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: k.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
-                <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{k.trendIcon}</span>
-                {k.trend}
-                <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากเดือนที่แล้ว</span>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: kp.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{kp.up ? 'trending_up' : 'trending_down'}</span>
+              {kp.trend}
+              <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากช่วงก่อนหน้า</span>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Main 2-col layout */}
       <div style={{ display: 'flex', gap: 18 }}>
-
         {/* LEFT column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
-
           {/* Charts row */}
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {/* Donut */}
             <div style={{ ...card, flex: '1 1 260px', padding: 22 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', marginBottom: 6 }}>ภาพรวมโปรเจกต์</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-                <DashboardCharts donutData={donutData} salesData={salesData} salesMonths={salesMonths} mode="donut" />
+                <DashboardCharts donutData={donutData} salesData={data.salesChart.data} salesMonths={data.salesChart.labels} mode="donut" />
               </div>
             </div>
             {/* Line chart */}
             <div style={{ ...card, flex: '1 1 320px', padding: 22 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>
-                  ยอดขาย <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>(6 เดือนล่าสุด)</span>
+                  ยอดขาย <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#5b6b77', border: '1px solid #e4e8ec', borderRadius: 9, padding: '5px 10px' }}>
                   บาท
                   <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>expand_more</span>
                 </div>
               </div>
-              <DashboardCharts donutData={donutData} salesData={salesData} salesMonths={salesMonths} mode="line" />
+              <DashboardCharts donutData={donutData} salesData={data.salesChart.data} salesMonths={data.salesChart.labels} mode="line" />
             </div>
           </div>
 
           {/* Recent Projects Table */}
           <div style={{ ...card, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span></div>
               <Link href="/projects" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13.5, color: '#4f7bb0', fontWeight: 500, textDecoration: 'none' }}>
                 ดูทั้งหมด
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
@@ -462,25 +241,25 @@ export default async function DashboardPage() {
                 <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h}</div>
               ))}
             </div>
-            {recentProjects.length === 0 ? (
+            {data.recentProjects.length === 0 ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#9aa7b2', fontSize: 13.5 }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 36, display: 'block', marginBottom: 8, color: '#cdd6df' }}>folder_open</span>
-                ยังไม่มีโปรเจกต์
+                ไม่มีโปรเจกต์ในช่วงวันที่นี้
               </div>
-            ) : recentProjects.map(p => {
+            ) : data.recentProjects.map(p => {
               const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
               const pct = STATUS_PROGRESS[p.status] || 0
               return (
                 <Link href={`/projects/${p.id}`} key={p.id} style={{ textDecoration: 'none' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '13px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}>
-                    {p.customer?.logo ? (
+                    {p.customerLogo ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.customer.logo} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid #eef1f4', background: '#f7f9fb' }} />
+                      <img src={p.customerLogo} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', border: '1px solid #eef1f4', background: '#f7f9fb' }} />
                     ) : (
                       <div style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #eef1f4', background: '#f7f9fb' }} />
                     )}
                     <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{p.code}</div>
-                    <div style={{ fontWeight: 600, color: '#2f3b45' }}>{p.customer?.name || '-'}</div>
+                    <div style={{ fontWeight: 600, color: '#2f3b45' }}>{p.customerName}</div>
                     <div style={{ color: '#7a8893', fontSize: 13 }}>{p.type}</div>
                     <div>
                       <span style={{ display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: s.bg, color: s.color }}>
@@ -501,7 +280,7 @@ export default async function DashboardPage() {
             })}
           </div>
 
-          {/* Priority leaks — ranked rich rows */}
+          {/* Priority leaks */}
           <div style={{ ...card, padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -514,13 +293,13 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <Link href="/leaks" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#c4593f', fontWeight: 600, textDecoration: 'none' }}>
-                ดูทั้งหมด ({leakItems.length})
+                ดูทั้งหมด ({data.leaks.length})
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
-            {leakItems.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+            {data.leaks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {leakItems.map((p, i) => (
+                {data.leaks.map((p, i) => (
                   <Link href="/leaks" key={i} style={{ textDecoration: 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5', cursor: 'pointer' }}>
                       <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -551,7 +330,6 @@ export default async function DashboardPage() {
 
         {/* RIGHT column */}
         <div style={{ width: 312, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
-
           {/* Tax invoices */}
           <div style={{ background: 'linear-gradient(135deg,#ecebf8,#f5f4fc)', borderRadius: 18, padding: 20, border: '1px solid #e3e1f3' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -562,25 +340,22 @@ export default async function DashboardPage() {
               <Link href="/documents" style={{ fontSize: 12.5, color: '#6760a8', fontWeight: 600, textDecoration: 'none' }}>ดูทั้งหมด</Link>
             </div>
             <div style={{ fontSize: 12, color: '#8a7fb5', marginBottom: 14 }}>
-              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า · รวม ฿{Math.round(pendingSendTotal).toLocaleString('th-TH')}
+              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า · รวม ฿{data.pendingSend.total.toLocaleString('th-TH')}
             </div>
-            {pendingSendDocs.length === 0 ? emptyState('article', 'ไม่มีเอกสารรอส่ง') : (
+            {data.pendingSend.docs.length === 0 ? emptyState('article', 'ไม่มีเอกสารรอส่ง') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {pendingSendDocs.map(doc => {
-                  const total = documentTotal(doc)
-                  return (
-                    <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{doc.clientName || '-'}</div>
-                        <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{doc.no} · {doc.issueDate}</div>
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{Math.round(total).toLocaleString('th-TH')}</div>
+                {data.pendingSend.docs.map(doc => (
+                  <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
                     </div>
-                  )
-                })}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{doc.clientName}</div>
+                      <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{doc.no} · {doc.issueDate}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{doc.total.toLocaleString('th-TH')}</div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -608,11 +383,10 @@ export default async function DashboardPage() {
                 </div>
               ))}
             </div>
-            {schedule.length === 0 ? emptyState('event_busy', 'ไม่มีนัดหมายวันนี้') : (
+            {data.schedule.length === 0 ? emptyState('event_busy', 'ไม่มีนัดหมายวันนี้') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {schedule.map((ev, i) => (
+                {data.schedule.map((ev, i) => (
                   <div key={i} style={{ display: 'flex', gap: 11 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", width: 48, flexShrink: 0, paddingTop: 1 }}>{ev.time}</div>
                     <div style={{ borderLeft: '2px solid #cdd9e3', paddingLeft: 11, flex: 1 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 500, color: '#2f3b45' }}>{ev.title}</div>
                       <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 1 }}>{ev.sub}</div>
@@ -626,9 +400,9 @@ export default async function DashboardPage() {
           {/* Tasks */}
           <div style={{ ...card, padding: 20 }}>
             <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ภารกิจที่ต้องทำ</div>
-            {priorityTasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+            {data.tasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-                {priorityTasks.map((t, i) => (
+                {data.tasks.map((t, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                     <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c3cdd6' }}>check_box_outline_blank</span>
                     <span style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</span>
@@ -645,16 +419,16 @@ export default async function DashboardPage() {
               <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>กิจกรรมล่าสุด</div>
               <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>ดูทั้งหมด</div>
             </div>
-            {activities.length === 0 ? emptyState('history', 'ยังไม่มีกิจกรรม') : (
+            {data.activities.length === 0 ? emptyState('history', 'ยังไม่มีกิจกรรม') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-                {activities.map((a, i) => (
+                {data.activities.map((a, i) => (
                   <div key={i} style={{ display: 'flex', gap: 11 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 9, background: a.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <span className="material-symbols-rounded" style={{ fontSize: 17, color: a.iconColor }}>{a.icon}</span>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#3b4954', lineHeight: 1.4 }}>{a.title}</div>
-                      <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{relativeTime(a.ts, today)}</div>
+                      <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{relativeTime(new Date(a.ts), now)}</div>
                     </div>
                   </div>
                 ))}
@@ -663,6 +437,6 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
