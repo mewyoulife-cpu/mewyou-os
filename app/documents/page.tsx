@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 type TypeKey = 'quotation' | 'invoice' | 'receipt' | 'tax_invoice'
 
@@ -65,6 +64,13 @@ const TYPE_CHIPS: { key: 'all' | TypeKey; label: string }[] = [
 ]
 
 const CARRIERS = ['ไปรษณีย์ไทย', 'Kerry', 'Flash', 'J&T', 'อื่นๆ']
+
+const DOC_TYPE_CARDS = [
+  { label: 'ใบเสนอราคา', desc: 'เสนอราคางานออกแบบให้ลูกค้า', icon: 'request_quote', bg: '#ecebf8', color: '#6760a8', href: '/quotation/new' },
+  { label: 'Invoice',     desc: 'แจ้งยอดที่ต้องชำระ',         icon: 'receipt_long',  bg: '#fdf3e3', color: '#f4a431', href: '/documents/new?type=invoice' },
+  { label: 'ใบเสร็จ',     desc: 'ยืนยันการรับชำระเงิน',       icon: 'receipt',       bg: '#e9f3ed', color: '#3d8a64', href: '/documents/new?type=receipt' },
+  { label: 'ใบกำกับภาษี', desc: 'เอกสารภาษีมูลค่าเพิ่ม',      icon: 'article',       bg: '#ecebf8', color: '#6760a8', href: '/documents/new?type=taxinvoice' },
+]
 
 function calcAmount(doc: RawDoc): number {
   try {
@@ -130,6 +136,7 @@ export default function DocumentsPage() {
   const [tab, setTab] = useState<'all' | 'tracking'>('all')
   const [activeChip, setActiveChip] = useState<'all' | TypeKey>('all')
   const [trackId, setTrackId] = useState<string | null>(null)
+  const [chooserOpen, setChooserOpen] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -183,12 +190,10 @@ export default function DocumentsPage() {
           <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>เอกสารทั้งหมด</div>
           <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>ใบเสนอราคา · Invoice · ใบเสร็จ · ใบกำกับภาษี</div>
         </div>
-        <Link href="/documents/new" style={{ textDecoration: 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, height: 42, padding: '0 18px', borderRadius: 11, background: '#5f7d99', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
-            สร้างเอกสาร
-          </div>
-        </Link>
+        <div onClick={() => setChooserOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, height: 42, padding: '0 18px', borderRadius: 11, background: '#5f7d99', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
+          สร้างเอกสาร
+        </div>
       </div>
 
       {/* Top tabs */}
@@ -343,6 +348,41 @@ export default function DocumentsPage() {
           onClose={() => setTrackId(null)}
           onSaved={handleSavedTracking}
         />
+      )}
+
+      {chooserOpen && (
+        <div onClick={() => setChooserOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.32)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 560, maxWidth: '100%', background: '#fff', borderRadius: 18, boxShadow: '0 24px 60px rgba(30,45,60,.28)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #f0f2f5' }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#2f3b45' }}>สร้างเอกสารใหม่</div>
+                <div style={{ fontSize: 12.5, color: '#9aa7b2', marginTop: 2 }}>เลือกประเภทเอกสารที่ต้องการสร้าง</div>
+              </div>
+              <div onClick={() => setChooserOpen(false)} style={{ width: 32, height: 32, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>close</span>
+              </div>
+            </div>
+            <div style={{ padding: '22px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {DOC_TYPE_CARDS.map(card => (
+                <div
+                  key={card.label}
+                  onClick={() => { setChooserOpen(false); router.push(card.href) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 13, padding: 16, border: '1px solid #edf0f3', borderRadius: 14, cursor: 'pointer', transition: 'all .15s', background: '#fff' }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = '#bcd0df'; el.style.boxShadow = '0 6px 16px rgba(40,60,80,.08)'; el.style.background = '#fbfdfe' }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = '#edf0f3'; el.style.boxShadow = 'none'; el.style.background = '#fff' }}
+                >
+                  <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 24, color: card.color }}>{card.icon}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>{card.label}</div>
+                    <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 1 }}>{card.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
