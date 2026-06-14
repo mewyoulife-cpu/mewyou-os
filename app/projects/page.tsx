@@ -42,7 +42,108 @@ type Project = {
   status: string
   value: number
   dueDate: string | null
+  image?: string | null
   customer: { name: string } | null
+}
+
+// Compress an image file to a small JPEG data URL suitable for storing in the DB
+function fileToCompressedDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new window.Image()
+      img.onload = () => {
+        const maxW = 640
+        const scale = Math.min(1, maxW / img.width)
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(reader.result as string); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.onerror = reject
+      img.src = reader.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function KanbanCard({ project, onOpen, onImageChange }: {
+  project: Project
+  onOpen: () => void
+  onImageChange: (id: string, image: string | null) => void
+}) {
+  const [uploading, setUploading] = useState(false)
+
+  async function saveImage(image: string | null) {
+    onImageChange(project.id, image)
+    try {
+      await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+      })
+    } catch {
+      // keep optimistic state; will reconcile on next load
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file)
+      await saveImage(dataUrl)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={onOpen}
+      style={{ background: '#ffffff', borderRadius: 11, border: '1px solid #edf0f3', padding: '13px 14px', cursor: 'pointer' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 16px rgba(40,60,80,.1)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+    >
+      {project.image ? (
+        <div onClick={e => e.stopPropagation()} style={{ position: 'relative', marginBottom: 11 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={project.image} alt={project.name} style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', borderRadius: 9, display: 'block' }} />
+          <label style={{ position: 'absolute', bottom: 6, right: 6, width: 28, height: 28, borderRadius: 8, background: 'rgba(47,59,69,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#fff' }}>photo_camera</span>
+            <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+          </label>
+          <div onClick={() => saveImage(null)} style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 8, background: 'rgba(47,59,69,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 15, color: '#fff' }}>close</span>
+          </div>
+        </div>
+      ) : (
+        <label onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, aspectRatio: '1/1', border: '1.5px dashed #d4dce2', borderRadius: 9, cursor: 'pointer', marginBottom: 11, background: '#fafbfc' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 26, color: '#bcc7d1' }}>{uploading ? 'hourglass_empty' : 'add_photo_alternate'}</span>
+          <span style={{ fontSize: 11.5, color: '#9aa7b2' }}>{uploading ? 'กำลังอัปโหลด...' : 'เพิ่มรูปงานออกแบบ'}</span>
+          <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+      )}
+      <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif", marginBottom: 4 }}>{project.code}</div>
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45' }}>{project.customer?.name || '—'}</div>
+      <div style={{ fontSize: 12.5, color: '#7a8893', marginTop: 2 }}>{project.type}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 11, borderTop: '1px solid #f2f4f6' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#8a97a2' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 15 }}>event</span>
+          {project.dueDate ? project.dueDate.slice(0, 10) : '—'}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(project.value)}</div>
+      </div>
+    </div>
+  )
 }
 
 export default function ProjectsPage() {
@@ -190,28 +291,12 @@ export default function ProjectsPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {colProjects.map(p => (
-                      <div
+                      <KanbanCard
                         key={p.id}
-                        onClick={() => router.push(`/projects/${p.id}`)}
-                        style={{ background: '#ffffff', borderRadius: 11, border: '1px solid #edf0f3', padding: '13px 14px', cursor: 'pointer' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 16px rgba(40,60,80,.1)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, aspectRatio: '1/1', border: '1.5px dashed #d4dce2', borderRadius: 9, cursor: 'pointer', marginBottom: 11, background: '#fafbfc' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: 26, color: '#bcc7d1' }}>add_photo_alternate</span>
-                          <span style={{ fontSize: 11.5, color: '#9aa7b2' }}>เพิ่มรูปงานออกแบบ</span>
-                        </div>
-                        <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif", marginBottom: 4 }}>{p.code}</div>
-                        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45' }}>{p.customer?.name || '—'}</div>
-                        <div style={{ fontSize: 12.5, color: '#7a8893', marginTop: 2 }}>{p.type}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 11, borderTop: '1px solid #f2f4f6' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#8a97a2' }}>
-                            <span className="material-symbols-rounded" style={{ fontSize: 15 }}>event</span>
-                            {p.dueDate ? p.dueDate.slice(0, 10) : '—'}
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(p.value)}</div>
-                        </div>
-                      </div>
+                        project={p}
+                        onOpen={() => router.push(`/projects/${p.id}`)}
+                        onImageChange={(pid, image) => setProjects(prev => prev.map(x => x.id === pid ? { ...x, image } : x))}
+                      />
                     ))}
                     {colProjects.length === 0 && (
                       <div style={{ borderRadius: 11, border: '1.5px dashed #d4dce2', padding: '24px 16px', textAlign: 'center', color: '#c8d4de', fontSize: 12 }}>
