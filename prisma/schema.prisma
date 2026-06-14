@@ -153,4 +153,9 @@ model Settings {
   logo        String?
   ownerName   String @default("Mewyou Studio")
   position    String @default("Owner · Admin")
+  appName         String  @default("Mewyou Design OS")
+  browserTitle    String  @default("Mewyou Design OS")
+  metaDescription String  @default("")
+  favicon         String?
+  brandLogo       String?
 }

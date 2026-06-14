@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const NAV_ITEMS = [
   { key: 'dashboard', icon: 'home', label: 'หน้าหลัก', href: '/' },
@@ -19,6 +20,11 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [brandLogo, setBrandLogo] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(s => { if (s?.brandLogo) setBrandLogo(s.brandLogo) }).catch(() => {})
+  }, [])
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/'
@@ -36,13 +42,18 @@ export default function Sidebar() {
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 0 28px' }}>
-        <Image
-          src="/mewyou-logo-white.png"
-          alt="mewyou"
-          width={150}
-          height={46}
-          style={{ objectFit: 'contain', display: 'block' }}
-        />
+        {brandLogo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={brandLogo} alt="logo" style={{ maxWidth: 170, maxHeight: 56, objectFit: 'contain', display: 'block' }} />
+        ) : (
+          <Image
+            src="/mewyou-logo-white.png"
+            alt="mewyou"
+            width={150}
+            height={46}
+            style={{ objectFit: 'contain', display: 'block' }}
+          />
+        )}
         <div style={{ fontSize: 8.5, letterSpacing: 4, color: '#cddae4', fontWeight: 600 }}>
           DESIGN OS
         </div>

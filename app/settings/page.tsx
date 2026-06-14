@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { applyBrand } from '@/components/BrandApplier'
 
 interface Settings {
   companyName: string
@@ -17,6 +18,11 @@ interface Settings {
   logo: string | null
   ownerName: string
   position: string
+  appName: string
+  browserTitle: string
+  metaDescription: string
+  favicon: string | null
+  brandLogo: string | null
 }
 
 interface Bank {
@@ -31,6 +37,7 @@ interface Bank {
 const NAV = [
   { key: 'profile', icon: 'person',          label: 'โปรไฟล์',         sub: 'บัญชีและข้อมูลส่วนตัว', target: 'set-profile' },
   { key: 'company', icon: 'business',         label: 'ข้อมูลบริษัท',     sub: 'ที่อยู่ เลขภาษี โลโก้',  target: 'set-company' },
+  { key: 'brand',   icon: 'palette',          label: 'Brand Settings',  sub: 'โลโก้ Favicon ชื่อระบบ', target: 'set-brand' },
   { key: 'bank',    icon: 'account_balance',  label: 'บัญชีธนาคาร',      sub: 'บัญชีรับชำระเงิน',     target: 'set-bank' },
   { key: 'docs',    icon: 'description',      label: 'ค่าเริ่มต้นเอกสาร', sub: 'เลขที่ VAT เงื่อนไข',   target: 'set-company' },
   { key: 'team',    icon: 'group',            label: 'ทีมงาน',          sub: 'สมาชิกและสิทธิ์',      target: 'set-team' },
@@ -57,13 +64,13 @@ function bankBrand(name: string): { color: string; icon: string } {
   return { color: '#5f7d99', icon: 'account_balance' }
 }
 
-function fileToCompressedDataUrl(file: File): Promise<string> {
+function fileToCompressedDataUrl(file: File, maxWidth?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const img = new window.Image()
       img.onload = () => {
-        const maxW = 360
+        const maxW = maxWidth ?? 360
         const scale = Math.min(1, maxW / img.width)
         const w = Math.round(img.width * scale)
         const h = Math.round(img.height * scale)
@@ -82,11 +89,35 @@ function fileToCompressedDataUrl(file: File): Promise<string> {
   })
 }
 
+// Preview a brand asset on both a light and a dark background.
+function BrandPreview({ src, size }: { src: string | null; size: number }) {
+  const cell = (bg: string, label: string) => (
+    <div style={{ flex: 1 }}>
+      <div style={{ height: size + 24, borderRadius: 12, border: '1px solid #edf0f3', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src} alt="brand" style={{ maxWidth: size, maxHeight: size, objectFit: 'contain' }} />
+        ) : (
+          <span className="material-symbols-rounded" style={{ fontSize: 26, color: bg === '#2f3b45' ? '#5b6b77' : '#c8d4de' }}>image</span>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: '#9aa7b2', textAlign: 'center', marginTop: 4 }}>{label}</div>
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 10 }}>
+      {cell('#ffffff', 'Light')}
+      {cell('#2f3b45', 'Dark')}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [activeNav, setActiveNav] = useState('profile')
   const [settings, setSettings] = useState<Settings>({
     companyName: '', branch: '', address: '', province: '', postalCode: '', website: '', taxId: '', vatRate: 7, phone: '', email: '', logo: null, ownerName: '', position: '',
+    appName: 'Mewyou Design OS', browserTitle: 'Mewyou Design OS', metaDescription: '', favicon: null, brandLogo: null,
   })
   const [banks, setBanks] = useState<Bank[]>([])
   const [saving, setSaving] = useState(false)
@@ -111,6 +142,11 @@ export default function SettingsPage() {
         logo: s.logo ?? null,
         ownerName: s.ownerName ?? 'Mewyou Studio',
         position: s.position ?? 'Owner · Admin',
+        appName: s.appName ?? 'Mewyou Design OS',
+        browserTitle: s.browserTitle ?? 'Mewyou Design OS',
+        metaDescription: s.metaDescription ?? '',
+        favicon: s.favicon ?? null,
+        brandLogo: s.brandLogo ?? null,
       }))
     }).catch(() => {})
   }
@@ -150,12 +186,35 @@ export default function SettingsPage() {
           logo: settings.logo,
           ownerName: settings.ownerName,
           position: settings.position,
+          appName: settings.appName,
+          browserTitle: settings.browserTitle,
+          metaDescription: settings.metaDescription,
+          favicon: settings.favicon,
+          brandLogo: settings.brandLogo,
         }),
       })
+      // Reflect branding on the live browser tab immediately.
+      applyBrand({ browserTitle: settings.browserTitle, favicon: settings.favicon })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Favicon / logo upload: SVG and ICO are stored as-is; raster images are
+  // compressed to a 512px square data URL.
+  async function brandFile(e: React.ChangeEvent<HTMLInputElement>, field: 'favicon' | 'brandLogo') {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const isVector = /svg|icon|ico/i.test(file.type) || /\.(svg|ico)$/i.test(file.name)
+    if (isVector) {
+      const reader = new FileReader()
+      reader.onload = () => setS(field, String(reader.result))
+      reader.readAsDataURL(file)
+    } else {
+      setS(field, await fileToCompressedDataUrl(file, 512))
     }
   }
 
@@ -251,6 +310,44 @@ export default function SettingsPage() {
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>เบอร์โทรศัพท์</div><input value={settings.phone} onChange={e => setS('phone', e.target.value)} style={setInput} /></div>
               <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>เว็บไซต์ / Line</div><input value={settings.website} onChange={e => setS('website', e.target.value)} placeholder="www.example.com หรือ @lineid" style={setInput} /></div>
+            </div>
+          </div>
+
+          {/* Brand Settings */}
+          <div id="set-brand" style={{ ...card, scrollMarginTop: 12 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45', marginBottom: 6 }}>Brand Settings</div>
+            <div style={{ fontSize: 12.5, color: '#9aa7b2', marginBottom: 18 }}>ปรับแต่งโลโก้ Favicon ชื่อระบบ และข้อมูลที่แสดงบนแท็บเบราว์เซอร์</div>
+
+            <div style={{ marginBottom: 14 }}><div style={fieldLabel}>ชื่อระบบ (Application Name)</div><input value={settings.appName} onChange={e => setS('appName', e.target.value)} style={setInput} /></div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div style={{ flex: 1, minWidth: 220 }}><div style={fieldLabel}>Browser Title</div><input value={settings.browserTitle} onChange={e => setS('browserTitle', e.target.value)} style={setInput} /></div>
+            </div>
+            <div style={{ marginBottom: 18 }}>
+              <div style={fieldLabel}>Meta Description</div>
+              <textarea value={settings.metaDescription} onChange={e => setS('metaDescription', e.target.value)} placeholder="คำอธิบายระบบสำหรับ SEO / การแชร์ลิงก์" style={{ ...setInput, height: 'auto', minHeight: 64, padding: '10px 13px', resize: 'vertical', lineHeight: 1.5 }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+              {/* Favicon */}
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={fieldLabel}>Favicon (ไอคอนบนแท็บ)</div>
+                <BrandPreview src={settings.favicon} size={48} />
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, height: 36, padding: '0 14px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13, color: '#5b6b77', fontWeight: 500, cursor: 'pointer' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>upload</span>อัปโหลด Favicon
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/x-icon,.ico,.svg" onChange={e => brandFile(e, 'favicon')} style={{ display: 'none' }} />
+                </label>
+                <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 6 }}>PNG, JPG, SVG, ICO · แนะนำ 512×512px</div>
+              </div>
+              {/* Main Logo */}
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={fieldLabel}>Logo หลักของระบบ</div>
+                <BrandPreview src={settings.brandLogo} size={120} />
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, height: 36, padding: '0 14px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13, color: '#5b6b77', fontWeight: 500, cursor: 'pointer' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>upload</span>อัปโหลดโลโก้
+                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,.svg" onChange={e => brandFile(e, 'brandLogo')} style={{ display: 'none' }} />
+                </label>
+                <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 6 }}>PNG, JPG, SVG · พื้นใส (transparent) แนะนำ</div>
+              </div>
             </div>
           </div>
 
