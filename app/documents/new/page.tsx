@@ -153,7 +153,7 @@ function NewDocumentForm() {
 
   const { sub, vat, total } = calcSummary(form.items, form.discount, form.vatEnabled)
 
-  async function handleSave(status: 'draft' | 'sent') {
+  async function handleSave(status: 'draft' | 'sent', dest: 'list' | 'detail' = 'detail') {
     setSaving(true)
     try {
       const res = await fetch('/api/documents', {
@@ -162,7 +162,7 @@ function NewDocumentForm() {
         body: JSON.stringify({ ...form, type: docType, status }),
       })
       const data = await res.json()
-      router.push(`/documents/${data.id}`)
+      router.push(dest === 'list' ? '/documents' : `/documents/${data.id}`)
     } catch {
       alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
       setSaving(false)
@@ -191,14 +191,22 @@ function NewDocumentForm() {
             ยกเลิก
           </button>
           <button
-            onClick={() => handleSave('draft')}
+            onClick={() => handleSave('draft', 'detail')}
+            disabled={saving}
+            style={{ background: '#e8f1f9', color: '#6b96c2', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>
+            ดูตัวอย่าง
+          </button>
+          <button
+            onClick={() => handleSave('draft', 'list')}
             disabled={saving}
             style={{ background: '#edf0f3', color: '#5f7d99', border: '1px solid #d0d8e0', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
           >
             บันทึกร่าง
           </button>
           <button
-            onClick={() => handleSave('sent')}
+            onClick={() => handleSave('sent', 'detail')}
             disabled={saving}
             style={{ background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
