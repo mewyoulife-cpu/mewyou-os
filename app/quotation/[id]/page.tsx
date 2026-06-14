@@ -93,6 +93,8 @@ export default function QuotationDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -137,6 +139,19 @@ export default function QuotationDetailPage() {
       setTimeout(() => setSaved(false), 2500)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!quotation) return
+    if (!confirm(`ต้องการลบใบเสนอราคา ${quotation.no} ใช่หรือไม่?`)) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/quotations/${id}`, { method: 'DELETE' })
+      router.push('/quotation')
+    } catch {
+      setDeleting(false)
+      alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
     }
   }
 
@@ -270,13 +285,44 @@ export default function QuotationDetailPage() {
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>{saved ? 'check_circle' : 'save'}</span>
             {saving ? 'กำลังบันทึก...' : saved ? 'บันทึกแล้ว' : 'บันทึกข้อมูลใบเสนอราคา'}
           </button>
-          <button style={{
-            width: 40, height: 40, border: '1px solid #e4e8ec', borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', background: '#fff',
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5b6b77' }}>more_horiz</span>
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              style={{
+                width: 40, height: 40, border: '1px solid #e4e8ec', borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', background: menuOpen ? '#f5f7f9' : '#fff',
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#5b6b77' }}>more_horiz</span>
+            </button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                <div style={{
+                  position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 41,
+                  background: '#fff', borderRadius: 12, border: '1px solid #edf0f3',
+                  boxShadow: '0 8px 24px rgba(30,45,60,.14)', overflow: 'hidden', minWidth: 160,
+                }}>
+                  <button
+                    onClick={() => { setMenuOpen(false); handleDelete() }}
+                    disabled={deleting}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+                      padding: '11px 16px', border: 'none', background: '#fff',
+                      fontSize: 13.5, fontWeight: 500, color: '#c4593f', cursor: 'pointer',
+                      fontFamily: 'inherit', textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#fbe9e5'}
+                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#fff'}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: 19 }}>delete</span>
+                    {deleting ? 'กำลังลบ...' : 'ลบใบเสนอราคา'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
