@@ -339,7 +339,7 @@ export default function DocumentDoc(props: DocumentDocProps) {
         ))}
 
         {/* Empty lined area */}
-        <div style={{
+        <div className="doc-filler" style={{
           minHeight: 80,
           background: 'repeating-linear-gradient(#ffffff,#ffffff 43px,#f4f6f8 43px,#f4f6f8 44px)',
         }} />

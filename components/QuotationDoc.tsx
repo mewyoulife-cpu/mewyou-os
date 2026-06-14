@@ -279,7 +279,7 @@ export default function QuotationDoc(props: QuotationDocProps) {
         ))}
 
         {/* Empty lined area */}
-        <div style={{
+        <div className="doc-filler" style={{
           minHeight: 120,
           background: 'repeating-linear-gradient(#ffffff,#ffffff 43px,#f4f6f8 43px,#f4f6f8 44px)',
         }} />
