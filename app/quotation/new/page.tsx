@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Customer {
   id: string
@@ -11,6 +12,13 @@ interface Customer {
   email?: string
   address?: string
   taxId?: string
+  contact?: string
+}
+
+interface Project {
+  id: string
+  name: string
+  code: string
 }
 
 interface Item {
@@ -21,46 +29,64 @@ interface Item {
   price: number
 }
 
-const PRESET_SERVICES = [
-  { name: 'Logo Design', price: 8000 },
-  { name: 'Packaging Design', price: 15000 },
-  { name: 'Label Design', price: 5000 },
-  { name: 'Mockup', price: 12000 },
-  { name: 'Box Design', price: 18000 },
+const SERVICES: [string, number][] = [
+  ['Logo Design', 8000],
+  ['Label Design', 5000],
+  ['Packaging Design', 15000],
+  ['3D Mockup', 3000],
+  ['Artwork', 2000],
+  ['Brochure Design', 6000],
 ]
 
 const BANKS = [
-  { name: 'ธ.กสิกรไทย (KBank)', short: 'KBank' },
-  { name: 'ธ.ไทยพาณิชย์ (SCB)', short: 'SCB' },
-  { name: 'ธ.กรุงเทพ (BBL)', short: 'BBL' },
-  { name: 'พร้อมเพย์', short: 'PromptPay' },
+  { bank: 'ธนาคารกสิกรไทย', brand: '#1aa84a', icon: 'eco', no: '041-8-63463-4', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'ออมทรัพย์' },
+  { bank: 'ธนาคารไทยพาณิชย์', brand: '#4e2a84', icon: 'savings', no: '264-2-51789-0', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'ออมทรัพย์' },
+  { bank: 'ธนาคารกรุงเทพ', brand: '#1e4598', icon: 'account_balance', no: '195-0-44217-6', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'กระแสรายวัน' },
+  { bank: 'พร้อมเพย์ / PromptPay', brand: '#0a3a6b', icon: 'qr_code_2', no: '0-1055-60143-09-9', name: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', type: 'เลขประจำตัวผู้เสียภาษี' },
 ]
 
 function fmt(n: number) {
-  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (Math.floor(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function calcSummary(items: Item[], discount: number, vatEnabled: boolean) {
-  const sub = items.reduce((s, i) => s + i.qty * i.price, 0)
-  const afterDiscount = sub - discount
-  const vat = vatEnabled ? afterDiscount * 0.07 : 0
-  const total = afterDiscount + vat
-  return { sub, afterDiscount, vat, total }
+function thaiToday() {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = d.getFullYear() + 543
+  return `${dd}/${mm}/${yy}`
+}
+
+const qInput: React.CSSProperties = {
+  width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38,
+  padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45',
+  outline: 'none', background: '#fff', boxSizing: 'border-box',
+}
+
+const cardStyle: React.CSSProperties = {
+  background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22,
+}
+
+const cardTitle: React.CSSProperties = {
+  fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 16,
+}
+
+const fieldLabel: React.CSSProperties = {
+  fontSize: 12.5, color: '#7a8893', marginBottom: 6,
 }
 
 export default function NewQuotationPage() {
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [quoteNo, setQuoteNo] = useState('QO-25690600003')
   const [saving, setSaving] = useState(false)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [addServiceOpen, setAddServiceOpen] = useState(false)
-  const serviceRef = useRef<HTMLDivElement>(null)
 
-  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' })
   const [form, setForm] = useState({
     customerId: '',
-    issueDate: today,
-    expiry: '',
+    projectId: '',
+    issueDate: thaiToday(),
+    expiry: '-',
     items: [{ name: '', detail: '', qty: 1, unit: 'งาน', price: 0 }] as Item[],
     discount: 0,
     vatEnabled: true,
@@ -75,18 +101,13 @@ export default function NewQuotationPage() {
   })
 
   useEffect(() => {
-    fetch('/api/customers').then(r => r.json()).then(data => setCustomers(Array.isArray(data) ? data : []))
-  }, [])
-
-  // Close service dropdown on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (serviceRef.current && !serviceRef.current.contains(e.target as Node)) {
-        setAddServiceOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    fetch('/api/customers').then(r => r.json()).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/projects').then(r => r.json()).then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/quotations').then(r => r.json()).then(d => {
+      const list = Array.isArray(d) ? d : []
+      const nums = list.map((q: { no?: string }) => parseInt(String(q.no || '').replace(/\D/g, ''), 10) || 0)
+      setQuoteNo('QO-' + (Math.max(25690600002, ...nums) + 1))
+    }).catch(() => {})
   }, [])
 
   function setField(key: string, value: unknown) {
@@ -94,14 +115,14 @@ export default function NewQuotationPage() {
   }
 
   function handleCustomerChange(id: string) {
-    const c = customers.find(c => c.id === id)
+    const c = customers.find(x => x.id === id)
     setForm(f => ({
       ...f,
       customerId: id,
       clientName: c?.company || c?.name || '',
       clientAddress: c?.address || '',
       clientTaxId: c?.taxId || '',
-      clientContact: c?.name || '',
+      clientContact: c?.contact || c?.name || '',
       clientPhone: c?.phone || '',
     }))
   }
@@ -113,594 +134,297 @@ export default function NewQuotationPage() {
       return { ...f, items }
     })
   }
-
   function addItem() {
     setForm(f => ({ ...f, items: [...f.items, { name: '', detail: '', qty: 1, unit: 'งาน', price: 0 }] }))
   }
-
   function removeItem(idx: number) {
-    setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))
+    setForm(f => ({ ...f, items: f.items.length > 1 ? f.items.filter((_, i) => i !== idx) : f.items }))
+  }
+  function addService(val: string) {
+    if (!val) return
+    const [name, priceStr] = val.split('|')
+    setForm(f => ({ ...f, items: [...f.items, { name, detail: '', qty: 1, unit: 'งาน', price: Number(priceStr) || 0 }] }))
   }
 
-  function addPresetService(svc: { name: string; price: number }) {
-    setForm(f => ({ ...f, items: [...f.items, { name: svc.name, detail: '', qty: 1, unit: 'งาน', price: svc.price }] }))
-    setAddServiceOpen(false)
-  }
+  const subtotal = form.items.reduce((s, i) => s + i.qty * i.price, 0)
+  const afterDiscount = subtotal - form.discount
+  const vat = form.vatEnabled ? afterDiscount * 0.07 : 0
+  const grand = afterDiscount + vat
+  const deposit = grand * 0.5
+  const balance = grand - deposit
+  const isDeposit = form.paymentTerm === 'deposit50'
+  const bank = BANKS[form.bankIndex] || BANKS[0]
 
-  const { sub, afterDiscount, vat, total } = calcSummary(form.items, form.discount, form.vatEnabled)
-  const deposit = total * 0.5
-  const remaining = total * 0.5
-
-  async function handleSave(status: 'draft' | 'sent') {
+  async function handleSave(status: 'draft' | 'sent', dest: 'list' | 'detail' = 'detail') {
+    if (saving) return
     setSaving(true)
     try {
       const res = await fetch('/api/quotations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, status }),
+        body: JSON.stringify({
+          customerId: form.customerId || null,
+          status,
+          issueDate: form.issueDate,
+          expiry: form.expiry && form.expiry !== '-' ? form.expiry : null,
+          items: form.items,
+          discount: form.discount || 0,
+          vatEnabled: form.vatEnabled,
+          paymentTerm: form.paymentTerm,
+          bankIndex: form.bankIndex,
+          clientName: form.clientName || null,
+          clientAddress: form.clientAddress || null,
+          clientTaxId: form.clientTaxId || null,
+          clientContact: form.clientContact || null,
+          clientPhone: form.clientPhone || null,
+          notes: form.notes || null,
+        }),
       })
       const data = await res.json()
-      router.push(`/quotation/${data.id}`)
+      router.push(dest === 'list' ? '/quotation' : `/quotation/${data.id}`)
     } catch {
       alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
       setSaving(false)
     }
   }
 
-  const cardStyle = {
-    background: '#fff',
-    borderRadius: 18,
-    border: '1px solid #edf0f3',
-    padding: 22,
-    marginBottom: 16,
+  const headerBtn: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px',
+    border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77',
+    fontWeight: 500, cursor: 'pointer', background: '#fff',
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '9px 12px',
-    border: '1px solid #e0e5ea',
-    borderRadius: 10,
-    fontSize: 14,
-    color: '#2f3b45',
-    background: '#fff',
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-    fontFamily: 'inherit',
-  }
-
-  const labelStyle = {
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#7a8893',
-    display: 'block',
-    marginBottom: 5,
-  }
+  const toggleTrack = (on: boolean): React.CSSProperties => ({
+    width: 42, height: 24, borderRadius: 12, background: on ? '#5f7d99' : '#d4dce2',
+    position: 'relative', cursor: 'pointer', transition: 'background .15s', flexShrink: 0,
+  })
+  const toggleKnob = (on: boolean): React.CSSProperties => ({
+    position: 'absolute', top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: '50%',
+    background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,.2)',
+  })
 
   return (
     <div>
+      {/* Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#9aa7b2', margin: '16px 0 6px' }}>
+        <Link href="/quotation" style={{ color: '#9aa7b2', textDecoration: 'none' }}>ใบเสนอราคา</Link>
+        <span className="material-symbols-rounded" style={{ fontSize: 16 }}>chevron_right</span>
+        <span style={{ color: '#5b6b77', fontWeight: 500 }}>สร้างใหม่</span>
+      </div>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, margin: '0 0 18px' }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', margin: 0 }}>สร้างใบเสนอราคา</h1>
-          <p style={{ fontSize: 14, color: '#7a8893', margin: '4px 0 0' }}>กรอกข้อมูลเพื่อสร้างใบเสนอราคาใหม่</p>
+          <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>สร้างใบเสนอราคา</div>
+          <div style={{ fontSize: 13, color: '#9aa7b2', marginTop: 2, fontFamily: "'IBM Plex Sans', sans-serif" }}>{quoteNo}</div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={() => router.push('/quotation')}
-            style={{ background: '#f0f2f5', color: '#5f7d99', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            ยกเลิก
-          </button>
-          <button
-            onClick={() => handleSave('draft')}
-            disabled={saving}
-            style={{ background: '#edf0f3', color: '#5f7d99', border: '1px solid #d0d8e0', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            บันทึกร่าง
-          </button>
-          <button
-            onClick={() => setPreviewOpen(true)}
-            style={{ background: '#e8f1f9', color: '#6b96c2', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>preview</span>
-            ดูตัวอย่าง
-          </button>
-          <button
-            onClick={() => handleSave('sent')}
-            disabled={saving}
-            style={{ background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>send</span>
-            บันทึกและส่ง
-          </button>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          <div onClick={() => router.push('/quotation')} style={headerBtn}>ยกเลิก</div>
+          <div onClick={() => handleSave('draft', 'detail')} style={headerBtn}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>ดูตัวอย่าง
+          </div>
+          <div onClick={() => handleSave('draft', 'list')} style={headerBtn}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>save</span>บันทึกร่าง
+          </div>
+          <div onClick={() => handleSave('sent', 'detail')} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 18px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>send</span>{saving ? 'กำลังบันทึก...' : 'บันทึกและส่ง'}
+          </div>
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        {/* Left column */}
-        <div style={{ flex: '1.7', minWidth: 0 }}>
-
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* LEFT */}
+        <div style={{ flex: '1.6 1 460px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* ข้อมูลทั่วไป */}
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>ข้อมูลทั่วไป</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ลูกค้า</label>
-                <select
-                  value={form.customerId}
-                  onChange={e => handleCustomerChange(e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="">-- เลือกลูกค้า --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>
-                  ))}
+            <div style={cardTitle}>ข้อมูลทั่วไป</div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={fieldLabel}>ลูกค้า</div>
+                <select value={form.customerId} onChange={e => handleCustomerChange(e.target.value)} style={qInput}>
+                  <option value="">— เลือกลูกค้า —</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.company ? `${c.company} (${c.name})` : c.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label style={labelStyle}>วันที่ออก</label>
-                <input type="text" value={form.issueDate} onChange={e => setField('issueDate', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={fieldLabel}>โปรเจกต์</div>
+                <select value={form.projectId} onChange={e => setField('projectId', e.target.value)} style={qInput}>
+                  <option value="">— เลือกโปรเจกต์ —</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}
+                </select>
               </div>
-              <div>
-                <label style={labelStyle}>วันหมดอายุ</label>
-                <input type="text" value={form.expiry} onChange={e => setField('expiry', e.target.value)} style={inputStyle} placeholder="วว/ดด/ปปปป" />
+            </div>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 14 }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={fieldLabel}>วันที่ออก</div>
+                <input value={form.issueDate} onChange={e => setField('issueDate', e.target.value)} style={qInput} />
+              </div>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={fieldLabel}>วันหมดอายุ</div>
+                <input value={form.expiry} onChange={e => setField('expiry', e.target.value)} style={qInput} />
               </div>
             </div>
           </div>
 
           {/* รายละเอียดลูกค้า */}
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>
-              รายละเอียดลูกค้า
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#9aa7b2', marginLeft: 8 }}>(แสดงบนเอกสาร)</span>
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>ผู้ติดต่อ</label>
-                <input value={form.clientContact} onChange={e => setField('clientContact', e.target.value)} style={inputStyle} placeholder="ชื่อผู้ติดต่อ" />
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 4 }}>
+              รายละเอียดลูกค้า <span style={{ fontSize: 12.5, color: '#9aa7b2', fontWeight: 400 }}>(แสดงบนเอกสาร)</span>
+            </div>
+            <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 16 }}>ข้อมูลส่วนนี้จะปรากฏในกล่องลูกค้าบนใบเสนอราคา</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={fieldLabel}>ผู้ติดต่อ / Attention</div>
+                  <input value={form.clientContact} onChange={e => setField('clientContact', e.target.value)} placeholder="คุณ ..." style={qInput} />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={fieldLabel}>โทร / Tel</div>
+                  <input value={form.clientPhone} onChange={e => setField('clientPhone', e.target.value)} placeholder="0xx-xxx-xxxx" style={qInput} />
+                </div>
               </div>
               <div>
-                <label style={labelStyle}>เบอร์โทร</label>
-                <input value={form.clientPhone} onChange={e => setField('clientPhone', e.target.value)} style={inputStyle} placeholder="เบอร์โทรศัพท์" />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ชื่อบริษัท / ผู้รับ</label>
-                <input value={form.clientName} onChange={e => setField('clientName', e.target.value)} style={inputStyle} placeholder="ชื่อบริษัทหรือชื่อลูกค้า" />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>ที่อยู่</label>
-                <textarea
-                  value={form.clientAddress}
-                  onChange={e => setField('clientAddress', e.target.value)}
-                  style={{ ...inputStyle, height: 72, resize: 'vertical' }}
-                  placeholder="ที่อยู่"
-                />
+                <div style={fieldLabel}>ชื่อบริษัท / ผู้รับ</div>
+                <input value={form.clientName} onChange={e => setField('clientName', e.target.value)} placeholder="ชื่อบริษัทหรือชื่อลูกค้า" style={qInput} />
               </div>
               <div>
-                <label style={labelStyle}>เลขผู้เสียภาษี</label>
-                <input value={form.clientTaxId} onChange={e => setField('clientTaxId', e.target.value)} style={inputStyle} placeholder="0000000000000" />
+                <div style={fieldLabel}>ที่อยู่ / Address</div>
+                <input value={form.clientAddress} onChange={e => setField('clientAddress', e.target.value)} placeholder="บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด รหัสไปรษณีย์" style={qInput} />
+              </div>
+              <div style={{ maxWidth: 260 }}>
+                <div style={fieldLabel}>เลขประจำตัวผู้เสียภาษี</div>
+                <input value={form.clientTaxId} onChange={e => setField('clientTaxId', e.target.value)} placeholder="0000000000000" style={qInput} />
               </div>
             </div>
           </div>
 
           {/* รายการ */}
           <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: 0 }}>รายการ</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{ position: 'relative' }} ref={serviceRef}>
-                  <button
-                    onClick={() => setAddServiceOpen(v => !v)}
-                    style={{ background: '#f0f2f5', color: '#5f7d99', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                  >
-                    <span className="material-symbols-rounded" style={{ fontSize: 16 }}>add</span>
-                    เพิ่มจากบริการ
-                    <span className="material-symbols-rounded" style={{ fontSize: 14 }}>arrow_drop_down</span>
-                  </button>
-                  {addServiceOpen && (
-                    <div style={{
-                      position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
-                      background: '#fff', borderRadius: 12, border: '1px solid #edf0f3',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 200, overflow: 'hidden',
-                    }}>
-                      {PRESET_SERVICES.map(svc => (
-                        <button
-                          key={svc.name}
-                          onClick={() => addPresetService(svc)}
-                          style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            width: '100%', background: 'none', border: 'none', padding: '10px 16px',
-                            fontSize: 13, color: '#2f3b45', cursor: 'pointer', textAlign: 'left',
-                          }}
-                          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#f5f7f9'}
-                          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'none'}
-                        >
-                          <span>{svc.name}</span>
-                          <span style={{ color: '#5f7d99', fontWeight: 600 }}>฿{svc.price.toLocaleString()}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={addItem}
-                  style={{ background: '#5f7d99', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: 16 }}>add</span>
-                  เพิ่มรายการ
-                </button>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>รายการ</div>
+              <select value="" onChange={e => { addService(e.target.value); e.target.value = '' }} style={{ border: '1px solid #e4e8ec', borderRadius: 9, height: 36, padding: '0 12px', fontFamily: 'inherit', fontSize: 13, color: '#5f7d99', fontWeight: 500, outline: 'none', background: '#f5f7f9', cursor: 'pointer' }}>
+                <option value="">+ เพิ่มจากบริการ (ดึงราคาตั้งต้น)</option>
+                {SERVICES.map(([name, price]) => <option key={name} value={`${name}|${price}`}>{name} · ฿{fmt(price)}</option>)}
+              </select>
             </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #edf0f3' }}>
-                    {['ชื่อรายการ', 'รายละเอียด', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'รวม', ''].map(h => (
-                      <th key={h} style={{ padding: '8px 10px', textAlign: h === 'รวม' ? 'right' : 'left', fontSize: 12, fontWeight: 600, color: '#9aa7b2' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.items.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #f5f7f9' }}>
-                      <td style={{ padding: '8px 10px', minWidth: 140 }}>
-                        <input
-                          value={item.name}
-                          onChange={e => updateItem(idx, 'name', e.target.value)}
-                          style={{ ...inputStyle, padding: '7px 10px' }}
-                          placeholder="ชื่อรายการ"
-                        />
-                      </td>
-                      <td style={{ padding: '8px 10px', minWidth: 140 }}>
-                        <input
-                          value={item.detail}
-                          onChange={e => updateItem(idx, 'detail', e.target.value)}
-                          style={{ ...inputStyle, padding: '7px 10px' }}
-                          placeholder="รายละเอียด"
-                        />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 70 }}>
-                        <input
-                          type="number"
-                          value={item.qty}
-                          onChange={e => updateItem(idx, 'qty', Number(e.target.value))}
-                          style={{ ...inputStyle, padding: '7px 10px', textAlign: 'center' }}
-                          min={1}
-                        />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 80 }}>
-                        <input
-                          value={item.unit}
-                          onChange={e => updateItem(idx, 'unit', e.target.value)}
-                          style={{ ...inputStyle, padding: '7px 10px' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 120 }}>
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={e => updateItem(idx, 'price', Number(e.target.value))}
-                          style={{ ...inputStyle, padding: '7px 10px', textAlign: 'right' }}
-                          min={0}
-                        />
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontSize: 14, whiteSpace: 'nowrap' }}>
-                        ฿{fmt(item.qty * item.price)}
-                      </td>
-                      <td style={{ padding: '8px 10px', width: 36 }}>
-                        {form.items.length > 1 && (
-                          <button
-                            onClick={() => removeItem(idx)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e07b54', padding: 4 }}
-                          >
-                            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>close</span>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 56px 66px 100px 92px 30px', gap: 9, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 2px 10px' }}>
+              <div>รายการ / รายละเอียด</div>
+              <div style={{ textAlign: 'center' }}>จำนวน</div>
+              <div style={{ textAlign: 'center' }}>หน่วย</div>
+              <div style={{ textAlign: 'right' }}>ราคา/หน่วย</div>
+              <div style={{ textAlign: 'right' }}>รวม</div>
+              <div />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {form.items.map((it, idx) => (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 56px 66px 100px 92px 30px', gap: 9, alignItems: 'start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <input value={it.name} onChange={e => updateItem(idx, 'name', e.target.value)} placeholder="ชื่อรายการ" style={qInput} />
+                    <input value={it.detail} onChange={e => updateItem(idx, 'detail', e.target.value)} placeholder="รายละเอียด (ถ้ามี)" style={{ width: '100%', border: '1px solid #eef1f4', borderRadius: 9, height: 34, padding: '0 12px', fontFamily: 'inherit', fontSize: 12.5, color: '#7a8893', outline: 'none', background: '#fafbfc', boxSizing: 'border-box' }} />
+                  </div>
+                  <input type="number" value={it.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 8px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#2f3b45', outline: 'none', textAlign: 'center', background: '#fff', boxSizing: 'border-box' }} />
+                  <input value={it.unit} onChange={e => updateItem(idx, 'unit', e.target.value)} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 8px', fontFamily: 'inherit', fontSize: 13, color: '#2f3b45', outline: 'none', textAlign: 'center', background: '#fff', boxSizing: 'border-box' }} />
+                  <input type="number" value={it.price} onChange={e => updateItem(idx, 'price', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38, padding: '0 10px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#2f3b45', outline: 'none', textAlign: 'right', background: '#fff', boxSizing: 'border-box' }} />
+                  <div style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 13, fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmt(it.qty * it.price)}</div>
+                  <div onClick={() => removeItem(idx)} style={{ height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#c3cdd6' }}>delete</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div onClick={addItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 14, padding: '10px 14px', border: '1.5px dashed #d4dce2', borderRadius: 10, fontSize: 13.5, fontWeight: 500, color: '#5f7d99', cursor: 'pointer' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 19 }}>add</span>เพิ่มรายการ
             </div>
           </div>
 
           {/* หมายเหตุ */}
           <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 12px' }}>หมายเหตุ</h3>
-            <textarea
-              value={form.notes}
-              onChange={e => setField('notes', e.target.value)}
-              style={{ ...inputStyle, height: 90, resize: 'vertical' }}
-              placeholder="หมายเหตุเพิ่มเติม..."
-            />
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 12 }}>หมายเหตุ</div>
+            <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} placeholder="หมายเหตุเพิ่มเติม..." style={{ width: '100%', minHeight: 70, border: '1px solid #e4e8ec', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 13.5, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }} />
           </div>
         </div>
 
-        {/* Right column */}
-        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 0 }}>
-
-          {/* สรุปยอด */}
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 16px' }}>สรุปยอด</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#7a8893' }}>
-                <span>มูลค่ารวม</span>
-                <span>฿{fmt(sub)}</span>
+        {/* RIGHT */}
+        <div style={{ width: 320, flex: '1 1 280px', position: 'sticky', top: 6, background: '#fff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 18 }}>สรุปยอด</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>รวมเป็นเงิน</span>
+              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmt(subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>ส่วนลด</span>
+              <input type="number" value={form.discount} onChange={e => setField('discount', Number(e.target.value))} style={{ width: 120, border: '1px solid #e4e8ec', borderRadius: 9, height: 36, padding: '0 12px', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13.5, color: '#c4593f', outline: 'none', textAlign: 'right', background: '#fff', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: '#5b6b77' }}>ภาษีมูลค่าเพิ่ม 7%</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 13.5, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{form.vatEnabled ? fmt(vat) : '0.00'}</span>
+                <div onClick={() => setField('vatEnabled', !form.vatEnabled)} style={toggleTrack(form.vatEnabled)}><div style={toggleKnob(form.vatEnabled)} /></div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: '#7a8893' }}>
-                <span>ส่วนลด</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13 }}>฿</span>
-                  <input
-                    type="number"
-                    value={form.discount}
-                    onChange={e => setField('discount', Number(e.target.value))}
-                    style={{ ...inputStyle, width: 110, padding: '5px 8px', textAlign: 'right' }}
-                    min={0}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, color: '#7a8893' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.vatEnabled}
-                    onChange={e => setField('vatEnabled', e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: 'pointer' }}
-                  />
-                  VAT 7%
-                </label>
-                <span>{form.vatEnabled ? `฿${fmt(vat)}` : '—'}</span>
-              </div>
-              <div style={{ height: 1, background: '#edf0f3' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, fontWeight: 700, color: '#2f3b45' }}>
-                <span>รวมทั้งสิ้น</span>
-                <span style={{ color: '#5f7d99' }}>฿{fmt(total)}</span>
-              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: 16, borderTop: '1.5px solid #eef1f4' }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#2f3b45' }}>รวมทั้งสิ้น</span>
+              <span style={{ fontSize: 24, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{fmt(grand)}</span>
             </div>
           </div>
 
           {/* เงื่อนไขการชำระเงิน */}
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 14px' }}>เงื่อนไขการชำระเงิน</h3>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              {[
-                { value: 'deposit50', label: 'มัดจำ 50%' },
-                { value: 'full', label: 'ชำระเต็มจำนวน 100%' },
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setField('paymentTerm', opt.value)}
-                  style={{
-                    flex: 1, padding: '8px 6px', border: `2px solid ${form.paymentTerm === opt.value ? '#5f7d99' : '#edf0f3'}`,
-                    borderRadius: 10, background: form.paymentTerm === opt.value ? '#e8eef4' : '#fff',
-                    color: form.paymentTerm === opt.value ? '#5f7d99' : '#7a8893',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center' as const,
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1.5px solid #eef1f4' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#3b4954', marginBottom: 10 }}>เงื่อนไขการชำระเงิน</div>
+            <div style={{ display: 'flex', gap: 9 }}>
+              <div onClick={() => setField('paymentTerm', 'deposit50')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 6px', borderRadius: 12, cursor: 'pointer', border: `2px solid ${isDeposit ? '#5f7d99' : '#edf0f3'}`, background: isDeposit ? '#e8eef4' : '#fff' }}>
+                <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif", color: isDeposit ? '#5f7d99' : '#9aa7b2' }}>50%</span>
+                <span style={{ fontSize: 11.5, color: isDeposit ? '#5f7d99' : '#9aa7b2' }}>มัดจำ</span>
+              </div>
+              <div onClick={() => setField('paymentTerm', 'full')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '12px 6px', borderRadius: 12, cursor: 'pointer', border: `2px solid ${!isDeposit ? '#5f7d99' : '#edf0f3'}`, background: !isDeposit ? '#e8eef4' : '#fff' }}>
+                <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif", color: !isDeposit ? '#5f7d99' : '#9aa7b2' }}>100%</span>
+                <span style={{ fontSize: 11.5, color: !isDeposit ? '#5f7d99' : '#9aa7b2' }}>ชำระเต็มจำนวน</span>
+              </div>
             </div>
-            {form.paymentTerm === 'deposit50' && (
-              <div style={{ background: '#f5f7f9', borderRadius: 10, padding: 12, fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7a8893', marginBottom: 6 }}>
-                  <span>ยอดมัดจำ (50%)</span>
-                  <span style={{ fontWeight: 600, color: '#2f3b45' }}>฿{fmt(deposit)}</span>
+            {isDeposit ? (
+              <div style={{ marginTop: 13, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#eef3f7', borderRadius: 10, padding: '11px 13px' }}>
+                  <span style={{ fontSize: 12.5, color: '#54697d' }}>มัดจำ 50%</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#5f7d99', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{fmt(deposit)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#7a8893' }}>
-                  <span>ยอดคงเหลือ</span>
-                  <span style={{ fontWeight: 600, color: '#2f3b45' }}>฿{fmt(remaining)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 13px' }}>
+                  <span style={{ fontSize: 12.5, color: '#9aa7b2' }}>คงเหลือชำระเมื่อส่งงาน</span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{fmt(balance)}</span>
                 </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f2ec', borderRadius: 10, padding: '11px 13px' }}>
+                <span style={{ fontSize: 12.5, color: '#3d6a52' }}>ชำระเต็มจำนวน</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#3d8a64', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{fmt(grand)}</span>
               </div>
             )}
           </div>
 
-          {/* บัญชีรับชำระ */}
-          <div style={cardStyle}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', margin: '0 0 12px' }}>บัญชีรับชำระเงิน</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {BANKS.map((bank, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setField('bankIndex', idx)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                    border: `2px solid ${form.bankIndex === idx ? '#5f7d99' : '#edf0f3'}`,
-                    borderRadius: 10, background: form.bankIndex === idx ? '#e8eef4' : '#fff',
-                    cursor: 'pointer', textAlign: 'left' as const, width: '100%',
-                  }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: 20, color: form.bankIndex === idx ? '#5f7d99' : '#b0bdc8' }}>account_balance</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: form.bankIndex === idx ? '#5f7d99' : '#4a5a67' }}>{bank.name}</span>
-                </button>
-              ))}
+          {/* hint */}
+          <div style={{ background: '#eef3f7', borderRadius: 12, padding: '13px 15px', marginTop: 18, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#5f7d99' }}>lightbulb</span>
+            <span style={{ fontSize: 12, color: '#54697d', lineHeight: 1.5 }}>ยอดทั้งหมดคำนวณอัตโนมัติเมื่อแก้ไขรายการ ส่วนลด หรือเปิด VAT</span>
+          </div>
+
+          {/* บัญชีรับชำระเงิน */}
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1.5px solid #eef1f4' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#3b4954', marginBottom: 9 }}>บัญชีรับชำระเงิน</div>
+            <select value={form.bankIndex} onChange={e => setField('bankIndex', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 40, padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45', outline: 'none', background: '#fff', boxSizing: 'border-box', marginBottom: 11 }}>
+              {BANKS.map((b, i) => <option key={i} value={i}>{b.bank} · {b.no}</option>)}
+            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#f5f7f9', borderRadius: 11, padding: '12px 13px' }}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: bank.brand, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#fff' }}>{bank.icon}</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, color: '#5b6b77' }}>{bank.bank} · {bank.type}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{bank.no}</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Preview Modal */}
-      {previewOpen && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            overflowY: 'auto', padding: '40px 20px',
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setPreviewOpen(false) }}
-        >
-          <div style={{ background: '#f0f2f5', borderRadius: 20, padding: 20, width: '100%', maxWidth: 880, position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#2f3b45' }}>ตัวอย่างใบเสนอราคา</h3>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                style={{ background: '#fff', border: '1px solid #edf0f3', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <span className="material-symbols-rounded" style={{ fontSize: 18 }}>close</span>
-              </button>
-            </div>
-            <QuotationDocument form={form} total={total} sub={sub} vat={vat} />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function QuotationDocument({ form, total, sub, vat }: {
-  form: {
-    clientName: string; clientAddress: string; clientTaxId: string; clientContact: string;
-    clientPhone: string; issueDate: string; expiry: string; items: Item[];
-    discount: number; vatEnabled: boolean; paymentTerm: string; bankIndex: number; notes: string;
-  },
-  total: number; sub: number; vat: number;
-}) {
-  const BANKS = ['ธ.กสิกรไทย (KBank)', 'ธ.ไทยพาณิชย์ (SCB)', 'ธ.กรุงเทพ (BBL)', 'พร้อมเพย์']
-  const afterDiscount = sub - form.discount
-
-  function fmt(n: number) {
-    return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 18, padding: '40px 48px', maxWidth: 800, margin: '0 auto',
-      boxShadow: '0 4px 32px rgba(0,0,0,0.12)', fontSize: 13, color: '#1a2630',
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #edf0f3' }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#5f7d99', letterSpacing: '-0.5px' }}>mew.you</div>
-          <div style={{ fontSize: 11, color: '#9aa7b2', letterSpacing: '0.2em', textTransform: 'uppercase' }}>Design Studio</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#2f3b45' }}>ใบเสนอราคา</div>
-          <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 2 }}>QUOTATION</div>
-          <div style={{ marginTop: 8, fontSize: 13, color: '#4a5a67' }}>
-            <div>วันที่: {form.issueDate}</div>
-            {form.expiry && <div>ใช้ได้ถึง: {form.expiry}</div>}
-          </div>
-        </div>
-      </div>
-
-      {/* Client + Issuer */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid #edf0f3' }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa7b2', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>เรียน</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#2f3b45' }}>{form.clientName || '(ชื่อลูกค้า)'}</div>
-          {form.clientAddress && <div style={{ color: '#7a8893', marginTop: 4, lineHeight: 1.6 }}>{form.clientAddress}</div>}
-          {form.clientContact && <div style={{ marginTop: 6, color: '#4a5a67' }}>ผู้ติดต่อ: {form.clientContact}</div>}
-          {form.clientPhone && <div style={{ color: '#4a5a67' }}>โทร: {form.clientPhone}</div>}
-          {form.clientTaxId && <div style={{ color: '#4a5a67' }}>เลขภาษี: {form.clientTaxId}</div>}
-        </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa7b2', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>ผู้เสนอราคา</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#2f3b45' }}>mew.you Design Studio</div>
-          <div style={{ color: '#7a8893', marginTop: 4, lineHeight: 1.6 }}>123 ถ.สุขุมวิท แขวงคลองเตย<br />กรุงเทพมหานคร 10110</div>
-          <div style={{ marginTop: 6, color: '#4a5a67' }}>โทร: 02-xxx-xxxx</div>
-          <div style={{ color: '#4a5a67' }}>Email: mewyou@gmail.com</div>
-        </div>
-      </div>
-
-      {/* Items Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 24 }}>
-        <thead>
-          <tr style={{ background: '#f5f7f9' }}>
-            {['#', 'รายการ', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'จำนวนเงิน'].map((h, i) => (
-              <th key={h} style={{
-                padding: '10px 12px',
-                textAlign: i === 0 ? 'center' : i >= 4 ? 'right' : 'left',
-                fontSize: 12, fontWeight: 700, color: '#7a8893',
-              }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {form.items.map((item, idx) => (
-            <tr key={idx} style={{ borderBottom: '1px solid #f0f2f5' }}>
-              <td style={{ padding: '10px 12px', textAlign: 'center', color: '#9aa7b2', fontSize: 13 }}>{idx + 1}</td>
-              <td style={{ padding: '10px 12px' }}>
-                <div style={{ fontWeight: 600, color: '#2f3b45' }}>{item.name || '(ชื่อรายการ)'}</div>
-                {item.detail && <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 2 }}>{item.detail}</div>}
-              </td>
-              <td style={{ padding: '10px 12px', textAlign: 'center', color: '#4a5a67' }}>{item.qty}</td>
-              <td style={{ padding: '10px 12px', color: '#4a5a67' }}>{item.unit}</td>
-              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#4a5a67' }}>฿{fmt(item.price)}</td>
-              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#2f3b45' }}>฿{fmt(item.qty * item.price)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Summary */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-        <div style={{ width: 280 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#7a8893' }}>
-            <span>มูลค่าไม่รวมภาษี</span><span>฿{fmt(sub)}</span>
-          </div>
-          {form.discount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#7a8893' }}>
-              <span>ส่วนลด</span><span>-฿{fmt(form.discount)}</span>
-            </div>
-          )}
-          {form.vatEnabled && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#7a8893' }}>
-              <span>ภาษีมูลค่าเพิ่ม 7%</span><span>฿{fmt(vat)}</span>
-            </div>
-          )}
-          <div style={{ height: 1, background: '#2f3b45', margin: '8px 0' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 16, fontWeight: 800, color: '#2f3b45' }}>
-            <span>รวมทั้งสิ้น</span><span>฿{fmt(total)}</span>
-          </div>
-          <div style={{ fontSize: 12, color: '#9aa7b2', textAlign: 'right' }}>
-            ({Math.round(total)} บาทถ้วน)
-          </div>
-        </div>
-      </div>
-
-      {/* Payment + Conditions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 40, padding: '20px 0', borderTop: '1px solid #edf0f3', borderBottom: '1px solid #edf0f3' }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#9aa7b2', textTransform: 'uppercase', marginBottom: 10 }}>ชำระเงินผ่าน</div>
-          <div style={{ fontWeight: 600, color: '#2f3b45' }}>{BANKS[form.bankIndex]}</div>
-          <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 4 }}>บัญชีเลขที่: XXX-X-XXXXX-X</div>
-          <div style={{ fontSize: 12, color: '#9aa7b2' }}>ชื่อบัญชี: บจก. มิวยู ดีไซน์</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#9aa7b2', textTransform: 'uppercase', marginBottom: 10 }}>เงื่อนไข</div>
-          <div style={{ fontSize: 12, color: '#4a5a67', lineHeight: 1.8 }}>
-            {form.paymentTerm === 'deposit50' ? (
-              <>
-                <div>1. มัดจำ 50% ก่อนเริ่มงาน</div>
-                <div>2. ส่งงานภายใน 30 วันทำการ</div>
-              </>
-            ) : (
-              <div>1. ชำระเต็มจำนวนก่อนรับงาน</div>
-            )}
-            <div>{form.paymentTerm === 'deposit50' ? '3.' : '2.'} แก้ไขได้ 2 ครั้ง</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Signatures */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
-        {['ผู้เสนอราคา', 'ผู้รับเอกสาร'].map(role => (
-          <div key={role} style={{ textAlign: 'center' }}>
-            <div style={{ height: 56, borderBottom: '1px solid #2f3b45', marginBottom: 8 }} />
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{role}</div>
-            <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 4 }}>วันที่: ___/___/______</div>
-          </div>
-        ))}
-      </div>
-
-      {form.notes && (
-        <div style={{ marginTop: 24, padding: 16, background: '#f9fafb', borderRadius: 10, fontSize: 13, color: '#7a8893' }}>
-          <span style={{ fontWeight: 600, color: '#2f3b45' }}>หมายเหตุ: </span>{form.notes}
-        </div>
-      )}
     </div>
   )
 }
