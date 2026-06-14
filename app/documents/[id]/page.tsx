@@ -51,11 +51,24 @@ const statusConfig: Record<string, { label: string; bg: string; color: string }>
   overdue: { label: 'เกินกำหนด', bg: '#fceee8', color: '#e07b54' },
 }
 
-const BANKS = [
-  { name: 'ธนาคารกสิกรไทย', type: 'ออมทรัพย์', no: '123-4-56789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#138f2d', icon: 'account_balance' },
-  { name: 'ธนาคารไทยพาณิชย์', type: 'ออมทรัพย์', no: '123-456789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#4e2e7f', icon: 'account_balance' },
-  { name: 'ธนาคารกรุงเทพ', type: 'ออมทรัพย์', no: '123-4-56789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#1e4598', icon: 'account_balance' },
-  { name: 'พร้อมเพย์', type: 'PromptPay', no: '081-234-5678', holder: 'mew.you Studio', brand: '#0d4e8b', icon: 'qr_code_2' },
+interface BankView { name: string; type: string; no: string; holder: string; brand: string; icon: string }
+
+function bankBrand(name: string): { brand: string; icon: string } {
+  const n = name || ''
+  if (n.includes('กสิกร') || /kbank/i.test(n)) return { brand: '#1aa84a', icon: 'eco' }
+  if (n.includes('ไทยพาณิชย์') || /scb/i.test(n)) return { brand: '#4e2a84', icon: 'savings' }
+  if (n.includes('กรุงเทพ') || /bbl/i.test(n)) return { brand: '#1e4598', icon: 'account_balance' }
+  if (n.includes('พร้อมเพย์') || /promptpay/i.test(n)) return { brand: '#0a3a6b', icon: 'qr_code_2' }
+  if (n.includes('กรุงไทย') || /ktb/i.test(n)) return { brand: '#00a4e4', icon: 'account_balance' }
+  if (n.includes('กรุงศรี')) return { brand: '#fdb913', icon: 'account_balance' }
+  return { brand: '#5f7d99', icon: 'account_balance' }
+}
+
+const FALLBACK_BANKS: BankView[] = [
+  { name: 'ธนาคารกสิกรไทย', type: 'ออมทรัพย์', no: '041-8-63463-4', holder: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1aa84a', icon: 'eco' },
+  { name: 'ธนาคารไทยพาณิชย์', type: 'ออมทรัพย์', no: '264-2-51789-0', holder: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#4e2a84', icon: 'savings' },
+  { name: 'ธนาคารกรุงเทพ', type: 'กระแสรายวัน', no: '195-0-44217-6', holder: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1e4598', icon: 'account_balance' },
+  { name: 'พร้อมเพย์ / PromptPay', type: '', no: '0-1055-60143-09-9', holder: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', brand: '#0a3a6b', icon: 'qr_code_2' },
 ]
 
 function fmt(n: number) {
@@ -104,6 +117,7 @@ export default function DocumentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [banks, setBanks] = useState<BankView[]>([])
   const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -115,6 +129,11 @@ export default function DocumentDetailPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    fetch('/api/banks').then(r => r.json()).then(d => {
+      const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
+      if (!list.length) return
+      setBanks(list.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...bankBrand(b.bank) })))
+    }).catch(() => {})
   }, [id])
 
   async function handleSend() {
@@ -187,7 +206,8 @@ export default function DocumentDetailPage() {
   const total = afterDiscount + vat
   const tc = typeConfig[document.type as DocTypeKey] || typeConfig.invoice
   const sc = statusConfig[document.status] || statusConfig.draft
-  const bank = BANKS[document.bankIndex ?? 0] || BANKS[0]
+  const bankList = banks.length ? banks : FALLBACK_BANKS
+  const bank = bankList[document.bankIndex ?? 0] || bankList[0]
   const isReceipt = document.type === 'receipt'
   const isTaxInvoice = document.type === 'taxinvoice'
 
@@ -538,7 +558,7 @@ export default function DocumentDetailPage() {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 13, color: '#5a6772' }}>{bank.name} <span style={{ color: '#9aa7b2' }}>· {bank.type}</span></div>
+                <div style={{ fontSize: 13, color: '#5a6772' }}>{bank.name}{bank.type ? <span style={{ color: '#9aa7b2' }}> · {bank.type}</span> : null}</div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: '#3a4654', fontFamily: "'IBM Plex Sans', monospace", letterSpacing: '.5px' }}>{bank.no}</div>
                 <div style={{ fontSize: 11.5, color: '#8a97a2' }}>{bank.holder}</div>
               </div>
