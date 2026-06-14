@@ -140,7 +140,11 @@ model BankAccount {
 model Settings {
   id          String @id @default("settings")
   companyName String @default("mew.you")
+  branch      String @default("สำนักงานใหญ่")
   address     String @default("")
+  province    String @default("")
+  postalCode  String @default("")
+  website     String @default("")
   taxId       String @default("")
   vatRate     Float  @default(7)
   phone       String @default("")

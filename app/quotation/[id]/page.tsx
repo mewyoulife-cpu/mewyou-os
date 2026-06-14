@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { printDocNode } from '@/lib/printDoc'
 import QuotationDoc from '@/components/QuotationDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface Item {
   name: string
@@ -67,6 +68,7 @@ export default function QuotationDetailPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [banks, setBanks] = useState<BankView[]>([])
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -78,6 +80,7 @@ export default function QuotationDetailPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
     fetch('/api/banks').then(r => r.json()).then(d => {
       const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
       if (!list.length) return
@@ -308,6 +311,7 @@ export default function QuotationDetailPage() {
           notes={quotation.notes}
           projectName={quotation.projectName}
           ownerName={quotation.ownerName}
+          company={company}
         />
       </div>
     </div>

@@ -3,9 +3,17 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const doc = await prisma.document.findUnique({ where: { id } })
+  const doc = await prisma.document.findUnique({
+    where: { id },
+    include: { quotation: { select: { no: true } } },
+  })
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(doc)
+  let refNo: string | null = doc.quotation?.no ?? null
+  if (!refNo && doc.refInvoiceId) {
+    const ref = await prisma.document.findUnique({ where: { id: doc.refInvoiceId }, select: { no: true } })
+    refNo = ref?.no ?? null
+  }
+  return NextResponse.json({ ...doc, refNo })
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {

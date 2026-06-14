@@ -1,5 +1,7 @@
 'use client'
 
+import { CompanyInfo, FALLBACK_COMPANY } from '@/lib/company'
+
 const typeConfig = {
   invoice: { label: 'ใบแจ้งหนี้', labelEn: 'INVOICE', icon: 'receipt_long', color: '#6b96c2', bg: '#e8f1f9' },
   receipt: { label: 'ใบเสร็จรับเงิน', labelEn: 'RECEIPT', icon: 'check_circle', color: '#3d8a64', bg: '#e9f3ed' },
@@ -96,6 +98,8 @@ export interface DocumentDocProps {
   slipUrl?: string
   notes?: string
   quotationId?: string
+  refNo?: string
+  company?: CompanyInfo
   onOpenRef?: () => void
 }
 
@@ -104,8 +108,10 @@ export default function DocumentDoc(props: DocumentDocProps) {
     type, no, status, issueDate, dueDate,
     clientName, clientAddress, clientTaxId, clientContact, clientPhone,
     items, discount = 0, vatEnabled = false, bankIndex = 0, banks,
-    payMethod, payDate, payRef, slipUrl, notes, quotationId, onOpenRef,
+    payMethod, payDate, payRef, slipUrl, notes, quotationId, refNo, onOpenRef,
   } = props
+  const co = props.company || FALLBACK_COMPANY
+  const sellerAddress = [co.address, co.province, co.postalCode].filter(Boolean).join(' ')
 
   const sub = items.reduce((s, i) => s + i.qty * i.price, 0)
   const afterDiscount = sub - (discount || 0)
@@ -142,7 +148,7 @@ export default function DocumentDoc(props: DocumentDocProps) {
           )}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/mewyou-wordmark.png" alt="mew.you" style={{ height: 82, width: 'auto', display: 'block' }} />
+        <img src={co.logo || '/mewyou-wordmark.png'} alt={co.name} style={{ height: 82, width: 'auto', maxWidth: 220, objectFit: 'contain', display: 'block' }} />
       </div>
 
       {/* 2. Info Section: Customer + Metadata */}
@@ -209,18 +215,20 @@ export default function DocumentDoc(props: DocumentDocProps) {
             <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right' }}>{dueDate || '-'}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>link</span>
+            <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>description</span>
             <span style={{ flex: 1, fontSize: 13, color: '#6a7884' }}>อ้างอิง / Ref</span>
             <span style={{ color: '#b8c2cb' }}>:</span>
-            {quotationId && onOpenRef ? (
-              <span
-                onClick={onOpenRef}
-                style={{ fontSize: 13.5, color: '#5f7d99', fontWeight: 700, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
-              >ดูอ้างอิง</span>
-            ) : quotationId ? (
-              <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right' }}>ดูอ้างอิง</span>
+            {refNo ? (
+              onOpenRef && quotationId ? (
+                <span
+                  onClick={onOpenRef}
+                  style={{ fontSize: 13.5, color: '#5f7d99', fontWeight: 700, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >{refNo}</span>
+              ) : (
+                <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right' }}>{refNo}</span>
+              )
             ) : (
-              <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right' }}>-</span>
+              <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 500, minWidth: 120, textAlign: 'right' }}>ไม่มีเอกสารอ้างอิง</span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -237,19 +245,20 @@ export default function DocumentDoc(props: DocumentDocProps) {
         {/* Seller info */}
         <div style={{ flex: '1.15 1 300px', display: 'flex', gap: 16 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mewyou-monogram.png" alt="m" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block' }} />
+          <img src={co.logo || '/mewyou-monogram.png'} alt="logo" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'contain', background: '#fff' }} />
           <div style={{ flex: 1 }}>
             <div style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '4px 12px', borderRadius: 6, marginBottom: 8 }}>
               ผู้ออกเอกสาร / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Issued By</span>
             </div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3a4654' }}>MEWYOU PACKAGING DESIGN</div>
-            <div style={{ fontSize: 12, color: '#6a7884', marginTop: 3, lineHeight: 1.55 }}>
-              บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด<br />
-              111/159 ซอย ฉลองกรุง 53 แขวง ลาดกระบัง เขตลาดกระบัง กรุงเทพมหานคร 10520
-            </div>
-            <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 6 }}>
-              เลขประจำตัวผู้เสียภาษี : <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>0105560143099</span>
-            </div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3a4654' }}>{co.name}{co.branch ? ` (${co.branch})` : ''}</div>
+            {sellerAddress && (
+              <div style={{ fontSize: 12, color: '#6a7884', marginTop: 3, lineHeight: 1.55 }}>{sellerAddress}</div>
+            )}
+            {co.taxId && (
+              <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 6 }}>
+                เลขประจำตัวผู้เสียภาษี : <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{co.taxId}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -259,16 +268,27 @@ export default function DocumentDoc(props: DocumentDocProps) {
             ติดต่อเรา / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Contact Us</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>person</span>คุณ มิว
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>call</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>099-669-6959</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>mail</span>mewyoulife@gmail.com
-            </div>
+            {co.contactName && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>person</span>{co.contactName}
+              </div>
+            )}
+            {co.phone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>call</span>
+                <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{co.phone}</span>
+              </div>
+            )}
+            {co.email && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>mail</span>{co.email}
+              </div>
+            )}
+            {co.website && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>chat</span>{co.website}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -434,7 +454,7 @@ export default function DocumentDoc(props: DocumentDocProps) {
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
           <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>{sigLeftTh} <span style={{ color: '#a3aeb8' }}>{sigLeftEn}</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
-          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>Mew you packaging</div>
+          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>{co.name}</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{issueDate}</div>
         </div>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import QuotationDoc from '@/components/QuotationDoc'
 import { printDocNode } from '@/lib/printDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface Customer {
   id: string
@@ -89,6 +90,7 @@ export default function EditQuotationPage() {
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const [no, setNo] = useState('')
@@ -116,6 +118,7 @@ export default function EditQuotationPage() {
       if (!list.length) return
       setBanks(list.map(b => ({ bank: b.bank, no: b.accountNo, name: b.name, ...bankBrand(b.bank) })))
     }).catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -483,6 +486,7 @@ export default function EditQuotationPage() {
                 bankIndex={bankIndex}
                 banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
                 notes={notes}
+                company={company}
               />
             </div>
           </div>

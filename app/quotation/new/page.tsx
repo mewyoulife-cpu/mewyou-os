@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import QuotationDoc from '@/components/QuotationDoc'
 import { printDocNode } from '@/lib/printDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface Customer {
   id: string
@@ -98,6 +99,7 @@ export default function NewQuotationPage() {
   const [quoteNo, setQuoteNo] = useState('QO-25690600003')
   const [saving, setSaving] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const [form, setForm] = useState({
@@ -134,6 +136,7 @@ export default function NewQuotationPage() {
       const defIdx = list.findIndex(b => b.isDefault)
       if (defIdx > 0) setForm(f => ({ ...f, bankIndex: defIdx }))
     }).catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
   }, [])
 
   function setField(key: string, value: unknown) {
@@ -483,6 +486,7 @@ export default function NewQuotationPage() {
                 bankIndex={form.bankIndex}
                 banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
                 notes={form.notes}
+                company={company}
               />
             </div>
           </div>

@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation'
 
 interface Settings {
   companyName: string
+  branch: string
   address: string
+  province: string
+  postalCode: string
+  website: string
   taxId: string
   vatRate: number
   phone: string
@@ -82,7 +86,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const [activeNav, setActiveNav] = useState('profile')
   const [settings, setSettings] = useState<Settings>({
-    companyName: '', address: '', taxId: '', vatRate: 7, phone: '', email: '', logo: null, ownerName: '', position: '',
+    companyName: '', branch: '', address: '', province: '', postalCode: '', website: '', taxId: '', vatRate: 7, phone: '', email: '', logo: null, ownerName: '', position: '',
   })
   const [banks, setBanks] = useState<Bank[]>([])
   const [saving, setSaving] = useState(false)
@@ -95,7 +99,11 @@ export default function SettingsPage() {
       setSettings(prev => ({
         ...prev,
         companyName: s.companyName ?? '',
+        branch: s.branch ?? '',
         address: s.address ?? '',
+        province: s.province ?? '',
+        postalCode: s.postalCode ?? '',
+        website: s.website ?? '',
         taxId: s.taxId ?? '',
         vatRate: s.vatRate ?? 7,
         phone: s.phone ?? '',
@@ -130,7 +138,11 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyName: settings.companyName,
+          branch: settings.branch,
           address: settings.address,
+          province: settings.province,
+          postalCode: settings.postalCode,
+          website: settings.website,
           taxId: settings.taxId,
           vatRate: Number(settings.vatRate) || 0,
           phone: settings.phone,
@@ -223,11 +235,22 @@ export default function SettingsPage() {
           <div id="set-company" style={{ ...card, scrollMarginTop: 12 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#2f3b45', marginBottom: 6 }}>ข้อมูลบริษัท</div>
             <div style={{ fontSize: 12.5, color: '#9aa7b2', marginBottom: 18 }}>ข้อมูลนี้จะแสดงบนหัวเอกสารทุกฉบับ</div>
-            <div style={{ marginBottom: 14 }}><div style={fieldLabel}>ชื่อบริษัท</div><input value={settings.companyName} onChange={e => setS('companyName', e.target.value)} style={setInput} /></div>
-            <div style={{ marginBottom: 14 }}><div style={fieldLabel}>ที่อยู่</div><input value={settings.address} onChange={e => setS('address', e.target.value)} style={setInput} /></div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div style={{ flex: 2, minWidth: 240 }}><div style={fieldLabel}>ชื่อบริษัท</div><input value={settings.companyName} onChange={e => setS('companyName', e.target.value)} style={setInput} /></div>
+              <div style={{ flex: 1, minWidth: 160 }}><div style={fieldLabel}>สาขา</div><input value={settings.branch} onChange={e => setS('branch', e.target.value)} placeholder="สำนักงานใหญ่ / สาขา" style={setInput} /></div>
+            </div>
+            <div style={{ marginBottom: 14 }}><div style={fieldLabel}>ที่อยู่</div><input value={settings.address} onChange={e => setS('address', e.target.value)} placeholder="บ้านเลขที่ ถนน แขวง/ตำบล เขต/อำเภอ" style={setInput} /></div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>จังหวัด</div><input value={settings.province} onChange={e => setS('province', e.target.value)} style={setInput} /></div>
+              <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>รหัสไปรษณีย์</div><input value={settings.postalCode} onChange={e => setS('postalCode', e.target.value)} style={setInput} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
               <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>เลขประจำตัวผู้เสียภาษี</div><input value={settings.taxId} onChange={e => setS('taxId', e.target.value)} style={setInput} /></div>
               <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>อัตราภาษีมูลค่าเพิ่ม (%)</div><input type="number" value={settings.vatRate} onChange={e => setS('vatRate', Number(e.target.value))} style={setInput} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>เบอร์โทรศัพท์</div><input value={settings.phone} onChange={e => setS('phone', e.target.value)} style={setInput} /></div>
+              <div style={{ flex: 1, minWidth: 200 }}><div style={fieldLabel}>เว็บไซต์ / Line</div><input value={settings.website} onChange={e => setS('website', e.target.value)} placeholder="www.example.com หรือ @lineid" style={setInput} /></div>
             </div>
           </div>
 

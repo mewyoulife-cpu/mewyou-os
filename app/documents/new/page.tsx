@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import DocumentDoc, { BankView, bankBrand as docBankBrand } from '@/components/DocumentDoc'
 import { printDocNode } from '@/lib/printDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface Customer {
   id: string
@@ -150,6 +151,7 @@ function NewDocumentForm() {
   const [docCount, setDocCount] = useState(0)
   const [saving, setSaving] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const today = thaiToday()
@@ -186,6 +188,7 @@ function NewDocumentForm() {
       fetch('/api/quotations').then(r => r.json()).then(d => setQuotations(Array.isArray(d) ? d : [])).catch(() => {})
     }
     fetch(`/api/documents?type=${docType}`).then(r => r.json()).then(d => setDocCount(Array.isArray(d) ? d.length : 0)).catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
   }, [docType])
 
   const bankList = banks.length ? banks : FALLBACK_BANKS
@@ -258,6 +261,9 @@ function NewDocumentForm() {
   const previewBanks: BankView[] = bankList.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...docBankBrand(b.bank) }))
   const showBankCard = docType === 'invoice' || docType === 'taxinvoice'
   const incomplete = !form.customerId || !form.items.some(i => i.name.trim())
+  const previewRefNo = docType === 'receipt'
+    ? refInvoices.find(d => d.id === form.refInvoiceId)?.no
+    : quotations.find(q => q.id === form.quotationId)?.no
 
   async function handleSave(status: string, dest: 'list' | 'detail' = 'detail') {
     if (saving) return
@@ -586,6 +592,8 @@ function NewDocumentForm() {
                 slipUrl={form.slipUrl}
                 notes={form.notes}
                 quotationId={form.quotationId}
+                company={company}
+                refNo={previewRefNo}
               />
             </div>
           </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { CompanyInfo, FALLBACK_COMPANY } from '@/lib/company'
+
 function fmt(n: number) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -84,9 +86,12 @@ interface QuotationDocProps {
   notes?: string
   projectName?: string
   ownerName?: string
+  company?: CompanyInfo
 }
 
 export default function QuotationDoc(props: QuotationDocProps) {
+  const co = props.company || FALLBACK_COMPANY
+  const sellerAddress = [co.address, co.province, co.postalCode].filter(Boolean).join(' ')
   const items = props.items || []
   const sub = items.reduce((s, i) => s + i.qty * i.price, 0)
   const afterDiscount = sub - (props.discount || 0)
@@ -114,7 +119,7 @@ export default function QuotationDoc(props: QuotationDocProps) {
           <div style={{ fontSize: 15, letterSpacing: 7, color: '#9aa7b2', fontWeight: 500, marginTop: 8 }}>QUOTATION</div>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/mewyou-wordmark.png" alt="mew.you" style={{ height: 82, width: 'auto', display: 'block', flexShrink: 0 }} />
+        <img src={co.logo || '/mewyou-wordmark.png'} alt={co.name} style={{ height: 82, width: 'auto', maxWidth: 220, objectFit: 'contain', display: 'block', flexShrink: 0 }} />
       </div>
 
       {/* 2. Info Section: Customer + Metadata */}
@@ -190,19 +195,20 @@ export default function QuotationDoc(props: QuotationDocProps) {
         {/* Seller info */}
         <div style={{ flex: '1.15 1 300px', display: 'flex', gap: 16 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mewyou-monogram.png" alt="m" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'cover' }} />
+          <img src={co.logo || '/mewyou-monogram.png'} alt="logo" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'contain', background: '#fff' }} />
           <div style={{ flex: 1 }}>
             <div style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '4px 12px', borderRadius: 6, marginBottom: 8 }}>
               ผู้ขอเสนอราคา / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Quotation From</span>
             </div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3a4654' }}>MEWYOU PACKAGING DESIGN</div>
-            <div style={{ fontSize: 12, color: '#6a7884', marginTop: 3, lineHeight: 1.55 }}>
-              สำนักงานขายใหญ่ บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด<br />
-              111/159 ซอย ฉลองกรุง 53 แขวง ลาดกระบัง เขตลาดกระบัง กรุงเทพมหานคร 10520
-            </div>
-            <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 6 }}>
-              เลขประจำตัวผู้เสียภาษี : <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>0105560143099</span>
-            </div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3a4654' }}>{co.name}{co.branch ? ` (${co.branch})` : ''}</div>
+            {sellerAddress && (
+              <div style={{ fontSize: 12, color: '#6a7884', marginTop: 3, lineHeight: 1.55 }}>{sellerAddress}</div>
+            )}
+            {co.taxId && (
+              <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 6 }}>
+                เลขประจำตัวผู้เสียภาษี : <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{co.taxId}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -213,11 +219,11 @@ export default function QuotationDoc(props: QuotationDocProps) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {[
-              { icon: 'person', text: 'คุณ มิว' },
-              { icon: 'call', text: '099-669-6959', mono: true },
-              { icon: 'mail', text: 'mewyoulife@gmail.com' },
-              { icon: 'chat', text: '@mewyou.design' },
-            ].map(row => (
+              co.contactName ? { icon: 'person', text: co.contactName } : null,
+              co.phone ? { icon: 'call', text: co.phone, mono: true } : null,
+              co.email ? { icon: 'mail', text: co.email } : null,
+              co.website ? { icon: 'chat', text: co.website } : null,
+            ].filter((r): r is { icon: string; text: string; mono?: boolean } => !!r).map(row => (
               <div key={row.icon + row.text} style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>{row.icon}</span>
                 <span style={row.mono ? { fontFamily: "'IBM Plex Sans', monospace" } : {}}>{row.text}</span>
@@ -387,17 +393,17 @@ export default function QuotationDoc(props: QuotationDocProps) {
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
           <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ผู้ออกเอกสาร <span style={{ color: '#a3aeb8' }}>/ Prepared By</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
-          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>จิรันต์เวธ ทับทิมแดง</div>
+          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>{co.contactName || co.name}</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
         </div>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
           <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 6 }}>ตราประทับ <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
           <div style={{ height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/mewyou-wordmark.png" alt="stamp" style={{ height: 30, opacity: 0.4 }} />
+            <img src={co.logo || '/mewyou-wordmark.png'} alt="stamp" style={{ height: 30, maxWidth: 120, objectFit: 'contain', opacity: 0.4 }} />
           </div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
-          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>Mew you packaging</div>
+          <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>{co.name}</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
         </div>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>

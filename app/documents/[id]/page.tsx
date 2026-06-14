@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { printDocNode } from '@/lib/printDoc'
 import DocumentDoc, { BankView, bankBrand } from '@/components/DocumentDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface Item {
   name: string
@@ -37,6 +38,7 @@ interface Document {
   delivery?: string
   notes?: string
   quotationId?: string
+  refNo?: string
 }
 
 const typeConfig = {
@@ -62,6 +64,7 @@ export default function DocumentDetailPage() {
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [banks, setBanks] = useState<BankView[]>([])
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const docRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,6 +76,7 @@ export default function DocumentDetailPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
     fetch('/api/banks').then(r => r.json()).then(d => {
       const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
       if (!list.length) return
@@ -259,6 +263,8 @@ export default function DocumentDetailPage() {
           notes={document.notes}
           quotationId={document.quotationId}
           onOpenRef={document.quotationId ? () => router.push(`/quotation/${document.quotationId}`) : undefined}
+          company={company}
+          refNo={document.refNo}
         />
       </div>
     </div>
