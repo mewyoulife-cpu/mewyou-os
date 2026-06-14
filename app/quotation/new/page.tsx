@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import QuotationDoc from '@/components/QuotationDoc'
+import { printDocNode } from '@/lib/printDoc'
 
 interface Customer {
   id: string
@@ -95,6 +97,8 @@ export default function NewQuotationPage() {
   const [banks, setBanks] = useState<BankView[]>([])
   const [quoteNo, setQuoteNo] = useState('QO-25690600003')
   const [saving, setSaving] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const previewRef = useRef<HTMLDivElement>(null)
 
   const [form, setForm] = useState({
     customerId: '',
@@ -243,8 +247,8 @@ export default function NewQuotationPage() {
         </div>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <div onClick={() => router.push('/quotation')} style={headerBtn}>ยกเลิก</div>
-          <div onClick={() => handleSave('draft', 'detail')} style={headerBtn}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>ดูตัวอย่าง
+          <div onClick={() => setPreviewOpen(true)} style={headerBtn}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>พรีวิวดูตัวอย่าง
           </div>
           <div onClick={() => handleSave('draft', 'list')} style={headerBtn}>
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>save</span>บันทึกร่าง
@@ -448,6 +452,42 @@ export default function NewQuotationPage() {
           </div>
         </div>
       </div>
+
+      {previewOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.45)', zIndex: 60, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            <div style={{ position: 'sticky', top: 0, background: '#fff', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>พรีวิวเอกสาร</span>
+              <div style={{ display: 'flex', gap: 9 }}>
+                <button onClick={() => printDocNode(previewRef.current, quoteNo)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: 'pointer', background: '#fff' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>picture_as_pdf</span>Export PDF
+                </button>
+                <button onClick={() => setPreviewOpen(false)} style={{ width: 36, height: 36, border: '1px solid #e4e8ec', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#fff', fontSize: 15, color: '#5b6b77' }}>✕</button>
+              </div>
+            </div>
+            <div ref={previewRef} className="print-doc" style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '46px 48px', maxWidth: 860, margin: '0 auto' }}>
+              <QuotationDoc
+                no={quoteNo}
+                status="draft"
+                issueDate={form.issueDate}
+                expiry={form.expiry && form.expiry !== '-' ? form.expiry : null}
+                clientName={form.clientName}
+                clientAddress={form.clientAddress}
+                clientTaxId={form.clientTaxId}
+                clientContact={form.clientContact}
+                clientPhone={form.clientPhone}
+                items={form.items.map(({ name, detail, qty, unit, price }) => ({ name, detail, qty, unit, price }))}
+                discount={form.discount}
+                vatEnabled={form.vatEnabled}
+                paymentTerm={form.paymentTerm}
+                bankIndex={form.bankIndex}
+                banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
+                notes={form.notes}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

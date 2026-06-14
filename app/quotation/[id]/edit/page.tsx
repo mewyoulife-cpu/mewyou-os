@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import QuotationDoc from '@/components/QuotationDoc'
+import { printDocNode } from '@/lib/printDoc'
 
 interface Customer {
   id: string
@@ -86,6 +88,8 @@ export default function EditQuotationPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const previewRef = useRef<HTMLDivElement>(null)
 
   const [no, setNo] = useState('')
   const [customerId, setCustomerId] = useState('')
@@ -241,12 +245,11 @@ export default function EditQuotationPage() {
         <div style={{ display: 'flex', gap: 9 }}>
           <Link href={`/quotation/${id}`} style={{ display: 'flex', alignItems: 'center', height: 40, padding: '0 16px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, textDecoration: 'none', background: '#fff' }}>ยกเลิก</Link>
           <button
-            onClick={handleSave}
-            disabled={saving || incomplete}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: saving || incomplete ? 'not-allowed' : 'pointer', background: '#fff', opacity: saving ? 0.7 : 1 }}
+            onClick={() => setPreviewOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: 'pointer', background: '#fff' }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>
-            ดูตัวอย่าง
+            พรีวิวดูตัวอย่าง
           </button>
           <button
             onClick={handleSave}
@@ -449,6 +452,42 @@ export default function EditQuotationPage() {
           </div>
         </div>
       </div>
+
+      {previewOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.45)', zIndex: 60, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            <div style={{ position: 'sticky', top: 0, background: '#fff', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>พรีวิวเอกสาร</span>
+              <div style={{ display: 'flex', gap: 9 }}>
+                <button onClick={() => printDocNode(previewRef.current, no)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: 'pointer', background: '#fff' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>picture_as_pdf</span>Export PDF
+                </button>
+                <button onClick={() => setPreviewOpen(false)} style={{ width: 36, height: 36, border: '1px solid #e4e8ec', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#fff', fontSize: 15, color: '#5b6b77' }}>✕</button>
+              </div>
+            </div>
+            <div ref={previewRef} className="print-doc" style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '46px 48px', maxWidth: 860, margin: '0 auto' }}>
+              <QuotationDoc
+                no={no}
+                status={status}
+                issueDate={issueDate}
+                expiry={expiry}
+                clientName={clientName}
+                clientAddress={clientAddress}
+                clientTaxId={clientTaxId}
+                clientContact={clientContact}
+                clientPhone={clientPhone}
+                items={items.map(({ name, detail, qty, unit, price }) => ({ name, detail, qty, unit, price }))}
+                discount={discount}
+                vatEnabled={vatEnabled}
+                paymentTerm={paymentTerm}
+                bankIndex={bankIndex}
+                banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
+                notes={notes}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

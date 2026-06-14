@@ -1,8 +1,10 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import DocumentDoc, { BankView, bankBrand as docBankBrand } from '@/components/DocumentDoc'
+import { printDocNode } from '@/lib/printDoc'
 
 interface Customer {
   id: string
@@ -147,6 +149,8 @@ function NewDocumentForm() {
   const [banks, setBanks] = useState<BankAccount[]>([])
   const [docCount, setDocCount] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const previewRef = useRef<HTMLDivElement>(null)
 
   const today = thaiToday()
 
@@ -251,6 +255,7 @@ function NewDocumentForm() {
   const { sub, vat, total } = calcSummary(form.items, form.discount, form.vatEnabled)
   const bank = bankList[form.bankIndex] || bankList[0]
   const brand = bankBrand(bank?.bank || '')
+  const previewBanks: BankView[] = bankList.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...docBankBrand(b.bank) }))
   const showBankCard = docType === 'invoice' || docType === 'taxinvoice'
   const incomplete = !form.customerId || !form.items.some(i => i.name.trim())
 
@@ -336,8 +341,8 @@ function NewDocumentForm() {
         </div>
         <div style={{ display: 'flex', gap: 9 }}>
           <div onClick={() => router.push('/documents')} style={headerBtn}>ยกเลิก</div>
-          <div onClick={() => handleSave('draft', 'detail')} style={headerBtn}>
-            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>พรีวิวเอกสาร
+          <div onClick={() => setPreviewOpen(true)} style={headerBtn}>
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>พรีวิวดูตัวอย่าง
           </div>
           <div onClick={() => handleSave(form.status, 'detail')} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 18px', borderRadius: 10, background: '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', boxShadow: '0 4px 12px rgba(95,125,153,.3)', opacity: saving ? 0.7 : 1 }}>
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>check</span>{saving ? 'กำลังบันทึก...' : 'บันทึกเอกสาร'}
@@ -514,8 +519,8 @@ function NewDocumentForm() {
           <div onClick={() => handleSave(form.status, 'detail')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 12, background: '#5f7d99', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', marginTop: 20, boxShadow: '0 4px 12px rgba(95,125,153,.3)', opacity: saving ? 0.7 : 1 }}>
             <span className="material-symbols-rounded" style={{ fontSize: 20 }}>save</span>บันทึกเอกสาร
           </div>
-          <div onClick={() => handleSave('draft', 'detail')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 42, borderRadius: 12, background: '#fff', border: '1px solid #e4e8ec', color: '#5b6b77', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 10 }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 19 }}>visibility</span>พรีวิวเอกสาร
+          <div onClick={() => setPreviewOpen(true)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 42, borderRadius: 12, background: '#fff', border: '1px solid #e4e8ec', color: '#5b6b77', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 10 }}>
+            <span className="material-symbols-rounded" style={{ fontSize: 19 }}>visibility</span>พรีวิวดูตัวอย่าง
           </div>
 
           {incomplete && (
@@ -545,6 +550,47 @@ function NewDocumentForm() {
           )}
         </div>
       </div>
+
+      {previewOpen && (
+        <div onClick={() => setPreviewOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(40,55,70,.45)', zIndex: 60, overflowY: 'auto', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 900, margin: '0 auto' }}>
+            <div style={{ position: 'sticky', top: 0, background: '#fff', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, zIndex: 1 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>พรีวิวเอกสาร</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div onClick={() => printDocNode(previewRef.current, dcNo)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 38, padding: '0 14px', borderRadius: 10, background: '#e8eef4', color: '#5f7d99', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>picture_as_pdf</span>Export PDF
+                </div>
+                <div onClick={() => setPreviewOpen(false)} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #e4e8ec', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8893', fontSize: 16, cursor: 'pointer' }}>✕</div>
+              </div>
+            </div>
+            <div ref={previewRef} className="print-doc" style={{ background: '#fff', borderRadius: 14, border: '1px solid #edf0f3', padding: '46px 48px', maxWidth: 860, margin: '0 auto' }}>
+              <DocumentDoc
+                type={docType}
+                no={dcNo}
+                status={form.status}
+                issueDate={form.issueDate}
+                dueDate={form.dueDate}
+                clientName={form.clientName}
+                clientAddress={form.clientAddress}
+                clientTaxId={form.clientTaxId}
+                clientContact={form.clientContact}
+                clientPhone={form.clientPhone}
+                items={form.items}
+                discount={form.discount}
+                vatEnabled={form.vatEnabled}
+                bankIndex={form.bankIndex}
+                banks={previewBanks}
+                payMethod={form.payMethod}
+                payDate={form.payDate}
+                payRef={form.payRef}
+                slipUrl={form.slipUrl}
+                notes={form.notes}
+                quotationId={form.quotationId}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
