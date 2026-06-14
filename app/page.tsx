@@ -159,7 +159,7 @@ export default async function DashboardPage() {
     recentProjects,
     statusGroups,
     nonCompletedProjects,
-    incomeDocs,
+    incomeProjects,
     outstandingDocs,
     outstandingDocsThisMonth,
     outstandingDocsLastMonth,
@@ -192,9 +192,8 @@ export default async function DashboardPage() {
       where: { status: { not: 'completed' } },
       select: { name: true, dueDate: true, value: true, status: true },
     }),
-    prisma.document.findMany({
-      where: { type: { in: ['invoice', 'receipt', 'taxinvoice'] }, refInvoiceId: null },
-      select: { items: true, discount: true, vatEnabled: true, createdAt: true },
+    prisma.project.findMany({
+      select: { value: true, createdAt: true },
     }),
     prisma.document.findMany({
       where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] } },
@@ -227,13 +226,13 @@ export default async function DashboardPage() {
     prisma.quotation.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { no: true, createdAt: true } }),
   ])
 
-  // ---- Sales: this month, last month, and 6-month series from income docs ----
+  // ---- Sales: this month, last month, and 6-month series from project value ----
   let salesThisMonth = 0
   let salesLastMonth = 0
   const monthlyTotals = new Map<string, number>()
-  for (const doc of incomeDocs) {
-    const amount = documentTotal(doc)
-    const created = doc.createdAt
+  for (const proj of incomeProjects) {
+    const amount = proj.value
+    const created = proj.createdAt
     if (created >= startOfThisMonth) salesThisMonth += amount
     else if (created >= startOfLastMonth && created < startOfThisMonth) salesLastMonth += amount
     if (created >= startOfSixMonthsAgo) {
