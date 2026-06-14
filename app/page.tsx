@@ -103,6 +103,19 @@ interface PriorityTask {
   countBg: string
 }
 
+interface LeakItem {
+  type: string
+  tier: string
+  tierBg: string
+  tierColor: string
+  icon: string
+  iconBg: string
+  iconColor: string
+  cust: string
+  action: string
+  amount: number
+}
+
 interface ScheduleItem {
   time: string
   title: string
@@ -130,37 +143,45 @@ export default async function DashboardPage() {
 
   const sevenDaysAhead = new Date(today)
   sevenDaysAhead.setDate(today.getDate() + 7)
-  const sevenDaysAheadKey = toDateStr(sevenDaysAhead)
+
+  const NON_ACTIVE_STATUSES = ['completed', 'lead', 'deliver']
 
   const [
-    customerCount,
-    customersThisMonth,
-    customersLastMonth,
     projectCount,
     projectsThisMonth,
     projectsLastMonth,
+    inProgressCount,
+    inProgressThisMonth,
+    inProgressLastMonth,
+    deliverCount,
+    deliverThisMonth,
+    deliverLastMonth,
     recentProjects,
     statusGroups,
     nonCompletedProjects,
     incomeDocs,
     outstandingDocs,
+    outstandingDocsThisMonth,
+    outstandingDocsLastMonth,
     pendingSendDocs,
-    sentQuotationCount,
-    paymentProjectCount,
-    revisionProjectCount,
-    draftBillingDocCount,
+    sentQuotations,
+    paymentProjects,
+    draftBillingDocs,
     todayNotes,
     todayDueProjects,
     activityProjects,
     activityDocuments,
     activityQuotations,
   ] = await Promise.all([
-    prisma.customer.count(),
-    prisma.customer.count({ where: { createdAt: { gte: startOfThisMonth } } }),
-    prisma.customer.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.project.count(),
     prisma.project.count({ where: { createdAt: { gte: startOfThisMonth } } }),
     prisma.project.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES } } }),
+    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES }, createdAt: { gte: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: { notIn: NON_ACTIVE_STATUSES }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: 'deliver' } }),
+    prisma.project.count({ where: { status: 'deliver', createdAt: { gte: startOfThisMonth } } }),
+    prisma.project.count({ where: { status: 'deliver', createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.project.findMany({
       include: { customer: true },
       orderBy: { createdAt: 'desc' },
@@ -169,7 +190,7 @@ export default async function DashboardPage() {
     prisma.project.groupBy({ by: ['status'], _count: true }),
     prisma.project.findMany({
       where: { status: { not: 'completed' } },
-      select: { name: true, dueDate: true },
+      select: { name: true, dueDate: true, value: true, status: true },
     }),
     prisma.document.findMany({
       where: { type: { in: ['invoice', 'receipt', 'taxinvoice'] }, refInvoiceId: null },
@@ -179,16 +200,26 @@ export default async function DashboardPage() {
       where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] } },
       select: { items: true, discount: true, vatEnabled: true },
     }),
+    prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfThisMonth } } }),
+    prisma.document.count({ where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] }, createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.document.findMany({
       where: { type: { in: ['invoice', 'taxinvoice'] }, status: { in: ['draft', 'sent'] } },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
     }),
-    prisma.quotation.count({ where: { status: 'sent' } }),
-    prisma.project.count({ where: { status: 'payment' } }),
-    prisma.project.count({ where: { status: 'revision' } }),
-    prisma.document.count({ where: { type: { in: ['invoice', 'taxinvoice'] }, status: 'draft' } }),
+    prisma.quotation.findMany({
+      where: { status: 'sent' },
+      select: { items: true, discount: true, vatEnabled: true },
+    }),
+    prisma.project.findMany({
+      where: { status: 'payment' },
+      select: { value: true },
+    }),
+    prisma.document.findMany({
+      where: { type: { in: ['invoice', 'taxinvoice'] }, status: 'draft' },
+      select: { items: true, discount: true, vatEnabled: true },
+    }),
     prisma.calendarNote.findMany({ where: { date: todayKey } }),
     prisma.project.findMany({ where: { dueDate: todayKey }, select: { name: true } }),
     prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { name: true, createdAt: true } }),
@@ -222,44 +253,81 @@ export default async function DashboardPage() {
   // ---- Outstanding total ----
   const outstandingTotal = outstandingDocs.reduce((s, d) => s + documentTotal(d), 0)
 
-  // ---- Upcoming projects within next 7 days ----
-  const upcomingCount = nonCompletedProjects.filter(p => {
-    if (!p.dueDate) return false
-    return p.dueDate >= todayKey && p.dueDate <= sevenDaysAheadKey
-  }).length
-
-  // ---- KPI cards ----
-  const customerTrend = trendPill(customersThisMonth, customersLastMonth)
+  // ---- KPI cards (design order, all real data, all with trend pills) ----
   const projectTrend = trendPill(projectsThisMonth, projectsLastMonth)
+  const inProgressTrend = trendPill(inProgressThisMonth, inProgressLastMonth)
+  const deliverTrend = trendPill(deliverThisMonth, deliverLastMonth)
   const salesTrend = trendPill(salesThisMonth, salesLastMonth)
+  const outstandingTrend = trendPill(outstandingDocsThisMonth, outstandingDocsLastMonth)
 
   const kpis: KpiCard[] = [
-    { icon: 'group', label: 'จำนวนลูกค้า', value: String(customerCount), unit: 'ราย', ...customerTrend },
     { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', ...projectTrend },
-    { icon: 'payments', label: 'ยอดขาย (เดือนนี้)', value: salesThisMonth > 0 ? fmtShort(Math.round(salesThisMonth)) : '฿0', unit: '', ...salesTrend },
-    { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '' },
-    { icon: 'schedule', label: 'งานใกล้กำหนดส่ง', value: String(upcomingCount), unit: 'งาน' },
+    { icon: 'pending_actions', label: 'กำลังดำเนินการ', value: String(inProgressCount), unit: 'โปรเจกต์', ...inProgressTrend },
+    { icon: 'local_shipping', label: 'รอส่งมอบ', value: String(deliverCount), unit: 'งาน', ...deliverTrend },
+    { icon: 'payments', label: 'ยอดขายรวม (เดือนนี้)', value: salesThisMonth > 0 ? fmtShort(Math.round(salesThisMonth)) : '฿0', unit: '', ...salesTrend },
+    { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '', ...outstandingTrend },
   ]
 
   // ---- Donut ----
   const countByStatus = (status: string) => statusGroups.find(g => g.status === status)?.['_count'] ?? 0
   const donutData = [
-    { label: 'ออกแบบ',        value: countByStatus('design'),    color: '#2f3b45' },
-    { label: 'ผลิต/รอส่งมอบ', value: countByStatus('deliver'),   color: '#5f7d99' },
-    { label: 'รออนุมัติ',     value: countByStatus('revision'),  color: '#3d8a64' },
-    { label: 'รอผลิต',        value: countByStatus('approved'),  color: '#b0bdc8' },
-    { label: 'เสร็จสิ้น',     value: countByStatus('completed'), color: '#c4a882' },
+    { label: 'ออกแบบ',    value: countByStatus('design'),    color: '#2f3b45' },
+    { label: 'ผลิต',      value: countByStatus('deliver'),   color: '#5f7d99' },
+    { label: 'รออนุมัติ', value: countByStatus('revision'),  color: '#3d8a64' },
+    { label: 'รอผลิต',    value: countByStatus('approved'),  color: '#b0bdc8' },
+    { label: 'เสร็จสิ้น', value: countByStatus('completed'), color: '#c4a882' },
   ]
 
-  // ---- Priority tasks (real) ----
-  const overdueProjectCount = nonCompletedProjects.filter(p => p.dueDate && p.dueDate < todayKey).length
+  // ---- Pending tax-invoice card total ----
+  const pendingSendTotal = pendingSendDocs.reduce((s, d) => s + documentTotal(d), 0)
 
+  // ---- Priority leak items (rich ranked, real data) ----
+  const overdueProjects = nonCompletedProjects.filter(p => p.dueDate && p.dueDate < todayKey)
+  const overdueValue = overdueProjects.reduce((s, p) => s + p.value, 0)
+  const quotationSentTotal = sentQuotations.reduce((s, q) => s + documentTotal(q), 0)
+  const depositValue = paymentProjects.reduce((s, p) => s + p.value, 0)
+  const draftBillingTotal = draftBillingDocs.reduce((s, d) => s + documentTotal(d), 0)
+
+  const leakCandidates: LeakItem[] = [
+    {
+      type: 'หนี้ค้างชำระ', tier: 'ด่วนที่สุด', tierBg: '#fbe9e5', tierColor: '#c4593f',
+      icon: 'schedule', iconBg: '#fbe9e5', iconColor: '#c4593f',
+      cust: `${outstandingDocs.length} รายการ`, action: 'โทรทวง / ส่งใบแจ้งเตือน', amount: outstandingTotal,
+    },
+    {
+      type: 'ใบเสนอราคาค้างตอบ', tier: 'ด่วนมาก', tierBg: '#fdeee9', tierColor: '#d97b53',
+      icon: 'mail', iconBg: '#fdeee9', iconColor: '#d97b53',
+      cust: `${sentQuotations.length} ใบ`, action: 'ติดตามลูกค้า', amount: quotationSentTotal,
+    },
+    {
+      type: 'งานเลยกำหนดส่ง', tier: 'ด่วนมาก', tierBg: '#fdeee9', tierColor: '#d97b53',
+      icon: 'update', iconBg: '#fdeee9', iconColor: '#d97b53',
+      cust: `${overdueProjects.length} งาน`, action: 'เร่งส่งมอบงาน', amount: overdueValue,
+    },
+    {
+      type: 'รอเก็บมัดจำ', tier: 'ควรทำเร็ว', tierBg: '#e8eef4', tierColor: '#5f7d99',
+      icon: 'savings', iconBg: '#e8eef4', iconColor: '#5f7d99',
+      cust: `${paymentProjects.length} โปรเจกต์`, action: 'ออกใบแจ้งหนี้มัดจำ', amount: depositValue,
+    },
+    {
+      type: 'ใบกำกับฯ/ใบแจ้งหนี้ รอส่ง', tier: 'ปกติ', tierBg: '#ecebf8', tierColor: '#6760a8',
+      icon: 'article', iconBg: '#ecebf8', iconColor: '#6760a8',
+      cust: `${draftBillingDocs.length} ฉบับ`, action: 'ส่งให้ลูกค้า', amount: draftBillingTotal,
+    },
+  ]
+
+  const leakItems = leakCandidates
+    .filter(l => l.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5)
+
+  // ---- Tasks widget (count-based, real) ----
   const priorityTasks: PriorityTask[] = ([
-    { label: 'ใบเสนอราคาค้างตอบ', count: sentQuotationCount, countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'งานเลยกำหนดส่ง', count: overdueProjectCount, countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'รอเก็บมัดจำ', count: paymentProjectCount, countColor: '#a9762f', countBg: '#fdf3e3' },
-    { label: 'Revision ค้างอยู่', count: revisionProjectCount, countColor: '#5f7d99', countBg: '#e8eef4' },
-    { label: 'ใบแจ้งหนี้/ใบกำกับฯ รอส่ง', count: draftBillingDocCount, countColor: '#6760a8', countBg: '#ecebf8' },
+    { label: 'ใบเสนอราคาค้างตอบ', count: sentQuotations.length, countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'งานเลยกำหนดส่ง', count: overdueProjects.length, countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'รอเก็บมัดจำ', count: paymentProjects.length, countColor: '#a9762f', countBg: '#fdf3e3' },
+    { label: 'Revision ค้างอยู่', count: nonCompletedProjects.filter(p => p.status === 'revision').length, countColor: '#5f7d99', countBg: '#e8eef4' },
+    { label: 'ใบแจ้งหนี้/ใบกำกับฯ รอส่ง', count: draftBillingDocs.length, countColor: '#6760a8', countBg: '#ecebf8' },
   ] as PriorityTask[]).filter(t => t.count > 0).slice(0, 5)
 
   // ---- Today's schedule ----
@@ -428,7 +496,7 @@ export default async function DashboardPage() {
             })}
           </div>
 
-          {/* Priority Tasks */}
+          {/* Priority leaks — ranked rich rows */}
           <div style={{ ...card, padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -441,23 +509,35 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <Link href="/leaks" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#c4593f', fontWeight: 600, textDecoration: 'none' }}>
-                ดูทั้งหมด
+                ดูทั้งหมด ({leakItems.length})
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
-            {priorityTasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+            {leakItems.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {priorityTasks.map((t, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5' }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                      {i + 1}
+                {leakItems.map((p, i) => (
+                  <Link href="/leaks" key={i} style={{ textDecoration: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5', cursor: 'pointer' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                        {i + 1}
+                      </div>
+                      <span className="material-symbols-rounded" style={{ fontSize: 20, color: p.iconColor }}>{p.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: '#2f3b45' }}>{p.type}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: p.tierBg, color: p.tierColor }}>{p.tier}</span>
+                          <span style={{ fontSize: 11.5, color: '#9aa7b2' }}>{p.cust}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#5f7d99', marginTop: 2 }}>
+                          <span className="material-symbols-rounded" style={{ fontSize: 14 }}>bolt</span>
+                          {p.action}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif", flexShrink: 0 }}>
+                        {fmtShort(Math.round(p.amount))}
+                      </div>
                     </div>
-                    <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>check_box_outline_blank</span>
-                    <div style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</div>
-                    <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>
-                      {`${t.count} รายการ`}
-                    </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -477,7 +557,7 @@ export default async function DashboardPage() {
               <Link href="/documents" style={{ fontSize: 12.5, color: '#6760a8', fontWeight: 600, textDecoration: 'none' }}>ดูทั้งหมด</Link>
             </div>
             <div style={{ fontSize: 12, color: '#8a7fb5', marginBottom: 14 }}>
-              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า
+              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า · รวม ฿{Math.round(pendingSendTotal).toLocaleString('th-TH')}
             </div>
             {pendingSendDocs.length === 0 ? emptyState('article', 'ไม่มีเอกสารรอส่ง') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
