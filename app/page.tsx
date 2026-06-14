@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma'
+import { documentTotal } from '@/lib/customerStats'
 import Link from 'next/link'
 import DashboardCharts from './DashboardCharts'
 
@@ -38,6 +39,13 @@ function getThaiBuddhistDate(date: Date): string {
   return `วัน${days[date.getDay()]}ที่ ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`
 }
 
+function toDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function getWeekDays(today: Date) {
   const dow = today.getDay()
   const mondayOffset = dow === 0 ? -6 : 1 - dow
@@ -51,112 +59,264 @@ function getWeekDays(today: Date) {
   })
 }
 
-function calcDocTotal(items: string, discount: number, vatEnabled: boolean) {
-  try {
-    const parsed = JSON.parse(items) as Array<{ qty: number; unitPrice: number }>
-    const subtotal = parsed.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0)
-    const afterDiscount = subtotal - discount
-    return vatEnabled ? afterDiscount * 1.07 : afterDiscount
-  } catch {
-    return 0
+const THAI_SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}`
+}
+
+function trendPill(cur: number, prev: number) {
+  const up = cur >= prev
+  const pct = prev > 0 ? Math.round(((cur - prev) / prev) * 100) : (cur > 0 ? 100 : 0)
+  return {
+    up,
+    trend: `${pct >= 0 ? '+' : ''}${pct}%`,
+    trendIcon: up ? 'trending_up' : 'trending_down',
   }
+}
+
+function relativeTime(from: Date, now: Date): string {
+  const diffMs = now.getTime() - from.getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'เมื่อสักครู่'
+  if (mins < 60) return `${mins} นาทีที่แล้ว`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`
+  const days = Math.floor(hours / 24)
+  return `${days} วันก่อน`
+}
+
+interface KpiCard {
+  icon: string
+  label: string
+  value: string
+  unit: string
+  trend?: string
+  trendIcon?: string
+  up?: boolean
+}
+
+interface PriorityTask {
+  label: string
+  count: number
+  countColor: string
+  countBg: string
+}
+
+interface ScheduleItem {
+  time: string
+  title: string
+  sub: string
+  sortKey: number
+}
+
+interface ActivityItem {
+  icon: string
+  iconBg: string
+  iconColor: string
+  title: string
+  ts: Date
 }
 
 export default async function DashboardPage() {
   const today = new Date()
   const todayStr = getThaiBuddhistDate(today)
+  const todayKey = toDateStr(today)
   const weekDays = getWeekDays(today)
 
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const startOfSixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
+
+  const sevenDaysAhead = new Date(today)
+  sevenDaysAhead.setDate(today.getDate() + 7)
+  const sevenDaysAheadKey = toDateStr(sevenDaysAhead)
 
   const [
+    customerCount,
+    customersThisMonth,
+    customersLastMonth,
     projectCount,
-    projects,
-    inProgressCount,
-    deliverCount,
+    projectsThisMonth,
+    projectsLastMonth,
+    recentProjects,
     statusGroups,
-    pendingDocs,
-    allPendingDocs,
-    monthlySalesProjects,
+    nonCompletedProjects,
+    incomeDocs,
+    outstandingDocs,
+    pendingSendDocs,
+    sentQuotationCount,
+    paymentProjectCount,
+    revisionProjectCount,
+    draftBillingDocCount,
+    todayNotes,
+    todayDueProjects,
+    activityProjects,
+    activityDocuments,
+    activityQuotations,
   ] = await Promise.all([
+    prisma.customer.count(),
+    prisma.customer.count({ where: { createdAt: { gte: startOfThisMonth } } }),
+    prisma.customer.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.project.count(),
+    prisma.project.count({ where: { createdAt: { gte: startOfThisMonth } } }),
+    prisma.project.count({ where: { createdAt: { gte: startOfLastMonth, lt: startOfThisMonth } } }),
     prisma.project.findMany({
       include: { customer: true },
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
-    prisma.project.count({ where: { status: { notIn: ['completed', 'lead', 'deliver'] } } }),
-    prisma.project.count({ where: { status: 'deliver' } }),
     prisma.project.groupBy({ by: ['status'], _count: true }),
-    prisma.document.findMany({
-      where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-      select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
+    prisma.project.findMany({
+      where: { status: { not: 'completed' } },
+      select: { name: true, dueDate: true },
     }),
     prisma.document.findMany({
-      where: { type: 'invoice', status: { in: ['draft', 'pending', 'sent'] } },
+      where: { type: { in: ['invoice', 'receipt', 'taxinvoice'] }, refInvoiceId: null },
+      select: { items: true, discount: true, vatEnabled: true, createdAt: true },
+    }),
+    prisma.document.findMany({
+      where: { type: 'invoice', status: { in: ['draft', 'sent', 'overdue'] } },
       select: { items: true, discount: true, vatEnabled: true },
     }),
-    prisma.project.findMany({
-      where: {
-        status: { in: ['payment', 'design', 'revision', 'approved', 'deliver', 'completed'] },
-        createdAt: { gte: startOfMonth },
-      },
-      select: { value: true },
+    prisma.document.findMany({
+      where: { type: { in: ['invoice', 'taxinvoice'] }, status: { in: ['draft', 'sent'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { no: true, clientName: true, issueDate: true, items: true, discount: true, vatEnabled: true },
     }),
+    prisma.quotation.count({ where: { status: 'sent' } }),
+    prisma.project.count({ where: { status: 'payment' } }),
+    prisma.project.count({ where: { status: 'revision' } }),
+    prisma.document.count({ where: { type: { in: ['invoice', 'taxinvoice'] }, status: 'draft' } }),
+    prisma.calendarNote.findMany({ where: { date: todayKey } }),
+    prisma.project.findMany({ where: { dueDate: todayKey }, select: { name: true } }),
+    prisma.project.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { name: true, createdAt: true } }),
+    prisma.document.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { no: true, type: true, createdAt: true, updatedAt: true } }),
+    prisma.quotation.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { no: true, createdAt: true } }),
   ])
 
-  const monthlySales = monthlySalesProjects.reduce((s, p) => s + p.value, 0)
-  const outstandingTotal = allPendingDocs.reduce(
-    (s, d) => s + calcDocTotal(d.items, d.discount, d.vatEnabled), 0
-  )
+  // ---- Sales: this month, last month, and 6-month series from income docs ----
+  let salesThisMonth = 0
+  let salesLastMonth = 0
+  const monthlyTotals = new Map<string, number>()
+  for (const doc of incomeDocs) {
+    const amount = documentTotal(doc)
+    const created = doc.createdAt
+    if (created >= startOfThisMonth) salesThisMonth += amount
+    else if (created >= startOfLastMonth && created < startOfThisMonth) salesLastMonth += amount
+    if (created >= startOfSixMonthsAgo) {
+      const key = monthKey(created)
+      monthlyTotals.set(key, (monthlyTotals.get(key) || 0) + amount)
+    }
+  }
 
+  const salesMonths: string[] = []
+  const salesData: number[] = []
+  for (let i = 5; i >= 0; i--) {
+    const m = new Date(today.getFullYear(), today.getMonth() - i, 1)
+    salesMonths.push(THAI_SHORT_MONTHS[m.getMonth()])
+    salesData.push(Math.round(monthlyTotals.get(monthKey(m)) || 0))
+  }
+
+  // ---- Outstanding total ----
+  const outstandingTotal = outstandingDocs.reduce((s, d) => s + documentTotal(d), 0)
+
+  // ---- Upcoming projects within next 7 days ----
+  const upcomingCount = nonCompletedProjects.filter(p => {
+    if (!p.dueDate) return false
+    return p.dueDate >= todayKey && p.dueDate <= sevenDaysAheadKey
+  }).length
+
+  // ---- KPI cards ----
+  const customerTrend = trendPill(customersThisMonth, customersLastMonth)
+  const projectTrend = trendPill(projectsThisMonth, projectsLastMonth)
+  const salesTrend = trendPill(salesThisMonth, salesLastMonth)
+
+  const kpis: KpiCard[] = [
+    { icon: 'group', label: 'จำนวนลูกค้า', value: String(customerCount), unit: 'ราย', ...customerTrend },
+    { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', ...projectTrend },
+    { icon: 'payments', label: 'ยอดขาย (เดือนนี้)', value: salesThisMonth > 0 ? fmtShort(Math.round(salesThisMonth)) : '฿0', unit: '', ...salesTrend },
+    { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '' },
+    { icon: 'schedule', label: 'งานใกล้กำหนดส่ง', value: String(upcomingCount), unit: 'งาน' },
+  ]
+
+  // ---- Donut ----
+  const countByStatus = (status: string) => statusGroups.find(g => g.status === status)?.['_count'] ?? 0
   const donutData = [
-    { label: 'ออกแบบ',   value: statusGroups.find(g => g.status === 'design')?.['_count'] ?? 0,    color: '#2f3b45' },
-    { label: 'ผลิต',     value: statusGroups.find(g => g.status === 'revision')?.['_count'] ?? 0,  color: '#5f7d99' },
-    { label: 'รออนุมัติ', value: statusGroups.find(g => g.status === 'approved')?.['_count'] ?? 0, color: '#3d8a64' },
-    { label: 'รอผลิต',   value: statusGroups.find(g => g.status === 'brief')?.['_count'] ?? 0,     color: '#b0bdc8' },
-    { label: 'เสร็จสิ้น', value: statusGroups.find(g => g.status === 'completed')?.['_count'] ?? 0, color: '#c4a882' },
+    { label: 'ออกแบบ',        value: countByStatus('design'),    color: '#2f3b45' },
+    { label: 'ผลิต/รอส่งมอบ', value: countByStatus('deliver'),   color: '#5f7d99' },
+    { label: 'รออนุมัติ',     value: countByStatus('revision'),  color: '#3d8a64' },
+    { label: 'รอผลิต',        value: countByStatus('approved'),  color: '#b0bdc8' },
+    { label: 'เสร็จสิ้น',     value: countByStatus('completed'), color: '#c4a882' },
   ]
 
-  const salesData = [65000, 78000, 72000, 85000, 92000, monthlySales || 455000]
-  const salesMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.']
+  // ---- Priority tasks (real) ----
+  const overdueProjectCount = nonCompletedProjects.filter(p => p.dueDate && p.dueDate < todayKey).length
 
-  const kpis = [
-    { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(projectCount), unit: 'โปรเจกต์', trend: '+12%', trendIcon: 'trending_up', up: true },
-    { icon: 'pending_actions', label: 'กำลังดำเนินการ', value: String(inProgressCount), unit: 'โปรเจกต์', trend: '+8%', trendIcon: 'trending_up', up: true },
-    { icon: 'local_shipping', label: 'รอส่งมอบ', value: String(deliverCount), unit: 'โปรเจกต์', trend: '-3%', trendIcon: 'trending_down', up: false },
-    { icon: 'payments', label: 'ยอดขาย (เดือนนี้)', value: monthlySales > 0 ? fmtShort(monthlySales) : '฿0', unit: '', trend: '+15%', trendIcon: 'trending_up', up: true },
-    { icon: 'receipt', label: 'ยอดค้างชำระ', value: outstandingTotal > 0 ? fmtShort(Math.round(outstandingTotal)) : '฿0', unit: '', trend: '-5%', trendIcon: 'trending_down', up: false },
-  ]
+  const priorityTasks: PriorityTask[] = ([
+    { label: 'ใบเสนอราคาค้างตอบ', count: sentQuotationCount, countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'งานเลยกำหนดส่ง', count: overdueProjectCount, countColor: '#c4593f', countBg: '#fbe9e5' },
+    { label: 'รอเก็บมัดจำ', count: paymentProjectCount, countColor: '#a9762f', countBg: '#fdf3e3' },
+    { label: 'Revision ค้างอยู่', count: revisionProjectCount, countColor: '#5f7d99', countBg: '#e8eef4' },
+    { label: 'ใบแจ้งหนี้/ใบกำกับฯ รอส่ง', count: draftBillingDocCount, countColor: '#6760a8', countBg: '#ecebf8' },
+  ] as PriorityTask[]).filter(t => t.count > 0).slice(0, 5)
 
-  const PRIORITY_TASKS = [
-    { label: 'ใบเสนอราคาค้างตอบ', count: '3 ใบ', countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'มัดจำที่ยังไม่ได้เก็บ', count: '5 งาน', countColor: '#a9762f', countBg: '#fdf3e3' },
-    { label: 'งานเลยกำหนดส่ง', count: '2 งาน', countColor: '#c4593f', countBg: '#fbe9e5' },
-    { label: 'Revision ค้างอยู่', count: '4 งาน', countColor: '#5f7d99', countBg: '#e8eef4' },
-    { label: 'ใบกำกับฯ รอส่งลูกค้า', count: '3 ใบ', countColor: '#6760a8', countBg: '#ecebf8' },
+  // ---- Today's schedule ----
+  const schedule: ScheduleItem[] = [
+    ...todayNotes.map(n => ({
+      time: '',
+      title: n.text,
+      sub: n.priority === 'high' || n.priority === 'urgent' ? 'งานสำคัญ' : 'ปกติ',
+      sortKey: n.createdAt.getTime(),
+    })),
+    ...todayDueProjects.map(p => ({
+      time: '',
+      title: `ส่งงาน ${p.name}`,
+      sub: 'กำหนดส่งวันนี้',
+      sortKey: Number.MAX_SAFE_INTEGER,
+    })),
   ]
+    .sort((a, b) => a.sortKey - b.sortKey)
+    .slice(0, 5)
 
-  const ACTIVITIES = [
-    { icon: 'add_task', iconBg: '#e9f3ed', iconColor: '#3d8a64', title: 'สร้างโปรเจกต์ GLOWME Body Serum', meta: '10 นาทีที่แล้ว' },
-    { icon: 'send', iconBg: '#ecebf8', iconColor: '#6760a8', title: 'ส่งใบเสนอราคา QT-2025-008 ให้ LUXE', meta: '1 ชั่วโมงที่แล้ว' },
-    { icon: 'payments', iconBg: '#fdf3e3', iconColor: '#f4a431', title: 'ได้รับมัดจำ ฿25,000 จาก PERCARE', meta: '3 ชั่วโมงที่แล้ว' },
-    { icon: 'check_circle', iconBg: '#e8f5e9', iconColor: '#4caf50', title: 'อนุมัติงาน JELLYS Collagen Label', meta: 'เมื่อวาน' },
+  // ---- Activity feed (real, merged & sorted) ----
+  const activities: ActivityItem[] = [
+    ...activityProjects.map(p => ({
+      icon: 'add_task', iconBg: '#e9f3ed', iconColor: '#3d8a64',
+      title: `สร้างโปรเจกต์ ${p.name}`, ts: p.createdAt,
+    })),
+    ...activityDocuments.map(d => {
+      const edited = d.updatedAt.getTime() - d.createdAt.getTime() > 60000
+      if (d.type === 'receipt') {
+        return { icon: 'payments', iconBg: '#fdf3e3', iconColor: '#f4a431', title: `รับชำระเงิน ${d.no}`, ts: d.createdAt }
+      }
+      return {
+        icon: 'description', iconBg: '#ecebf8', iconColor: '#6760a8',
+        title: edited ? `แก้ไขเอกสาร ${d.no}` : `สร้างเอกสาร ${d.no}`,
+        ts: edited ? d.updatedAt : d.createdAt,
+      }
+    }),
+    ...activityQuotations.map(q => ({
+      icon: 'request_quote', iconBg: '#ecebf8', iconColor: '#6760a8',
+      title: `สร้างใบเสนอราคา ${q.no}`, ts: q.createdAt,
+    })),
   ]
-
-  const SCHEDULE = [
-    { time: '09:00', title: 'Brief NATURE PLUS', sub: 'ห้องประชุม A · คุณแนน' },
-    { time: '13:00', title: 'Revision JELLYS รอบ 2', sub: 'Online · Zoom' },
-    { time: '15:30', title: 'ส่งงาน GLOWME', sub: 'ส่งไฟล์ Artwork' },
-  ]
+    .sort((a, b) => b.ts.getTime() - a.ts.getTime())
+    .slice(0, 5)
 
   const card: React.CSSProperties = {
     background: '#fff',
     borderRadius: 18,
     border: '1px solid #edf0f3',
   }
+
+  const emptyState = (icon: string, text: string) => (
+    <div style={{ padding: '24px 12px', textAlign: 'center', color: '#9aa7b2', fontSize: 13 }}>
+      <span className="material-symbols-rounded" style={{ fontSize: 30, display: 'block', marginBottom: 6, color: '#cdd6df' }}>{icon}</span>
+      {text}
+    </div>
+  )
 
   return (
     <div style={{ color: '#2f3b45' }}>
@@ -180,11 +340,13 @@ export default async function DashboardPage() {
               <span style={{ fontSize: 29, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{k.value}</span>
               {k.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{k.unit}</span>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: k.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{k.trendIcon}</span>
-              {k.trend}
-              <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากเดือนที่แล้ว</span>
-            </div>
+            {k.trend && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: k.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{k.trendIcon}</span>
+                {k.trend}
+                <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากเดือนที่แล้ว</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -233,12 +395,12 @@ export default async function DashboardPage() {
                 <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h}</div>
               ))}
             </div>
-            {projects.length === 0 ? (
+            {recentProjects.length === 0 ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#9aa7b2', fontSize: 13.5 }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 36, display: 'block', marginBottom: 8, color: '#cdd6df' }}>folder_open</span>
                 ยังไม่มีโปรเจกต์
               </div>
-            ) : projects.map(p => {
+            ) : recentProjects.map(p => {
               const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
               const pct = STATUS_PROGRESS[p.status] || 0
               return (
@@ -283,20 +445,22 @@ export default async function DashboardPage() {
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {PRIORITY_TASKS.map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5' }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-                    {i + 1}
+            {priorityTasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {priorityTasks.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 13px', borderRadius: 11, border: '1px solid #f0f2f5' }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 8, background: '#f5f7f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 13, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                      {i + 1}
+                    </div>
+                    <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>check_box_outline_blank</span>
+                    <div style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</div>
+                    <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>
+                      {`${t.count} รายการ`}
+                    </span>
                   </div>
-                  <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>check_box_outline_blank</span>
-                  <div style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</div>
-                  <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>
-                    {t.count}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -315,38 +479,25 @@ export default async function DashboardPage() {
             <div style={{ fontSize: 12, color: '#8a7fb5', marginBottom: 14 }}>
               ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {pendingDocs.length > 0 ? pendingDocs.map(doc => {
-                const total = calcDocTotal(doc.items, doc.discount, doc.vatEnabled)
-                return (
-                  <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
+            {pendingSendDocs.length === 0 ? emptyState('article', 'ไม่มีเอกสารรอส่ง') : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {pendingSendDocs.map(doc => {
+                  const total = documentTotal(doc)
+                  return (
+                    <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{doc.clientName || '-'}</div>
+                        <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{doc.no} · {doc.issueDate}</div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{Math.round(total).toLocaleString('th-TH')}</div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{doc.clientName || '-'}</div>
-                      <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{doc.no} · {doc.issueDate}</div>
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{Math.round(total).toLocaleString('th-TH')}</div>
-                  </div>
-                )
-              }) : [
-                { cust: 'LUXE CO., LTD.', no: 'TAX-2025-001', date: '20/05/68', amount: 53500 },
-                { cust: 'GLOWME', no: 'TAX-2025-002', date: '19/05/68', amount: 47500 },
-                { cust: 'PERCARE', no: 'TAX-2025-003', date: '18/05/68', amount: 32100 },
-              ].map(inv => (
-                <div key={inv.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecebf8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#6760a8' }}>article</span>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2f3b45' }}>{inv.cust}</div>
-                    <div style={{ fontSize: 11, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif" }}>{inv.no} · {inv.date}</div>
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>฿{inv.amount.toLocaleString('th-TH')}</div>
-                </div>
-              ))}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Mini Calendar */}
@@ -372,31 +523,35 @@ export default async function DashboardPage() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {SCHEDULE.map((ev, i) => (
-                <div key={i} style={{ display: 'flex', gap: 11 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", width: 48, flexShrink: 0, paddingTop: 1 }}>{ev.time}</div>
-                  <div style={{ borderLeft: '2px solid #cdd9e3', paddingLeft: 11, flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: '#2f3b45' }}>{ev.title}</div>
-                    <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 1 }}>{ev.sub}</div>
+            {schedule.length === 0 ? emptyState('event_busy', 'ไม่มีนัดหมายวันนี้') : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {schedule.map((ev, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 11 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", width: 48, flexShrink: 0, paddingTop: 1 }}>{ev.time}</div>
+                    <div style={{ borderLeft: '2px solid #cdd9e3', paddingLeft: 11, flex: 1 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: '#2f3b45' }}>{ev.title}</div>
+                      <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 1 }}>{ev.sub}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Tasks */}
           <div style={{ ...card, padding: 20 }}>
             <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ภารกิจที่ต้องทำ</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {PRIORITY_TASKS.map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c3cdd6' }}>check_box_outline_blank</span>
-                  <span style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</span>
-                  <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>{t.count}</span>
-                </div>
-              ))}
-            </div>
+            {priorityTasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {priorityTasks.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c3cdd6' }}>check_box_outline_blank</span>
+                    <span style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</span>
+                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>{`${t.count} รายการ`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Activity Feed */}
@@ -405,19 +560,21 @@ export default async function DashboardPage() {
               <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>กิจกรรมล่าสุด</div>
               <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>ดูทั้งหมด</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-              {ACTIVITIES.map((a, i) => (
-                <div key={i} style={{ display: 'flex', gap: 11 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: a.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span className="material-symbols-rounded" style={{ fontSize: 17, color: a.iconColor }}>{a.icon}</span>
+            {activities.length === 0 ? emptyState('history', 'ยังไม่มีกิจกรรม') : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                {activities.map((a, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 11 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: a.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: 17, color: a.iconColor }}>{a.icon}</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: '#3b4954', lineHeight: 1.4 }}>{a.title}</div>
+                      <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{relativeTime(a.ts, today)}</div>
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#3b4954', lineHeight: 1.4 }}>{a.title}</div>
-                    <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{a.meta}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
