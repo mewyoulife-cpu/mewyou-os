@@ -197,6 +197,10 @@ function NewDocumentForm() {
       fetch('/api/documents?type=invoice').then(r => r.json()).then(d => setRefInvoices(Array.isArray(d) ? d : [])).catch(() => {})
     } else {
       fetch('/api/quotations').then(r => r.json()).then(d => setQuotations(Array.isArray(d) ? d : [])).catch(() => {})
+      // Tax invoices may also reference an existing invoice.
+      if (docType === 'taxinvoice') {
+        fetch('/api/documents?type=invoice').then(r => r.json()).then(d => setRefInvoices(Array.isArray(d) ? d : [])).catch(() => {})
+      }
     }
     fetch(`/api/documents?type=${docType}`).then(r => r.json()).then(d => setDocCount(Array.isArray(d) ? d.length : 0)).catch(() => {})
     fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
@@ -206,7 +210,7 @@ function NewDocumentForm() {
   const dcNo = `${cfg.prefix}-${new Date().getFullYear() + 543}-${String(docCount + 1).padStart(4, '0')}`
 
   const dueLabel = docType === 'invoice' ? 'ครบกำหนดชำระ' : docType === 'receipt' ? 'วันที่รับชำระ' : 'วันที่'
-  const refLabel = docType === 'receipt' ? 'อ้างอิงใบแจ้งหนี้' : 'อ้างอิงใบเสนอราคา'
+  const refLabel = docType === 'receipt' ? 'อ้างอิงใบแจ้งหนี้' : docType === 'taxinvoice' ? 'อ้างอิงเอกสาร (ใบเสนอราคา / ใบแจ้งหนี้)' : 'อ้างอิงใบเสนอราคา'
 
   function setField(key: string, value: unknown) {
     setForm(f => ({ ...f, [key]: value }))
@@ -263,6 +267,19 @@ function NewDocumentForm() {
     }))
   }
 
+  // Tax invoice can reference either a quotation ("q:<id>") or an invoice ("i:<id>").
+  function handleTaxRefChange(value: string) {
+    if (!value) { setForm(f => ({ ...f, quotationId: '', refInvoiceId: '' })); return }
+    const [kind, refId] = [value.slice(0, 1), value.slice(2)]
+    if (kind === 'i') {
+      handleRefInvoiceChange(refId)
+      setField('quotationId', '')
+    } else {
+      handleQuotationChange(refId)
+      setField('refInvoiceId', '')
+    }
+  }
+
   function updateItem(idx: number, key: keyof Item, value: string | number) {
     setForm(f => {
       const items = [...f.items]
@@ -312,7 +329,7 @@ function NewDocumentForm() {
   const previewBanks: BankView[] = bankList.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...docBankBrand(b.bank) }))
   const showBankCard = docType === 'invoice' || docType === 'taxinvoice'
   const incomplete = !form.customerId || !form.items.some(i => i.name.trim())
-  const previewRefNo = docType === 'receipt'
+  const previewRefNo = form.refInvoiceId
     ? refInvoices.find(d => d.id === form.refInvoiceId)?.no
     : quotations.find(q => q.id === form.quotationId)?.no
 
@@ -325,8 +342,8 @@ function NewDocumentForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: form.customerId || null,
-          quotationId: docType === 'receipt' ? null : (form.quotationId || null),
-          refInvoiceId: docType === 'receipt' ? (form.refInvoiceId || null) : null,
+          quotationId: form.quotationId || null,
+          refInvoiceId: form.refInvoiceId || null,
           type: docType,
           status,
           issueDate: form.issueDate,
@@ -429,6 +446,16 @@ function NewDocumentForm() {
                   <select value={form.refInvoiceId} onChange={e => handleRefInvoiceChange(e.target.value)} style={qInput}>
                     <option value="">— ไม่ระบุ —</option>
                     {refInvoices.map(d => <option key={d.id} value={d.id}>{d.no} · {d.clientName || '—'}</option>)}
+                  </select>
+                ) : docType === 'taxinvoice' ? (
+                  <select value={form.quotationId ? `q:${form.quotationId}` : form.refInvoiceId ? `i:${form.refInvoiceId}` : ''} onChange={e => handleTaxRefChange(e.target.value)} style={qInput}>
+                    <option value="">— ไม่ระบุ —</option>
+                    <optgroup label="ใบเสนอราคา">
+                      {quotations.map(q => <option key={q.id} value={`q:${q.id}`}>{q.no} · {q.clientName || '—'}</option>)}
+                    </optgroup>
+                    <optgroup label="ใบแจ้งหนี้">
+                      {refInvoices.map(d => <option key={d.id} value={`i:${d.id}`}>{d.no} · {d.clientName || '—'}</option>)}
+                    </optgroup>
                   </select>
                 ) : (
                   <select value={form.quotationId} onChange={e => handleQuotationChange(e.target.value)} style={qInput}>
