@@ -45,6 +45,46 @@ function fmt(n: number) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// Convert a number to Thai baht text (e.g. 17000 -> หนึ่งหมื่นเจ็ดพันบาทถ้วน)
+function bahtText(num: number): string {
+  if (!num || isNaN(num)) return 'ศูนย์บาทถ้วน'
+  num = Math.round(num * 100) / 100
+  const [baht, satang] = num.toFixed(2).split('.')
+  const digits = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า']
+  const units = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน']
+  function readInt(raw: string): string {
+    const s = raw.replace(/^0+/, '') || '0'
+    if (s === '0') return ''
+    const n = s.length
+    if (n > 6) {
+      const head = s.slice(0, n - 6)
+      const tail = s.slice(n - 6)
+      return readInt(head) + 'ล้าน' + (parseInt(tail) === 0 ? '' : readInt(tail))
+    }
+    let result = ''
+    for (let i = 0; i < n; i++) {
+      const d = +s[i]
+      const pos = n - i - 1
+      if (d === 0) continue
+      if (pos === 0 && d === 1 && n > 1) result += 'เอ็ด'
+      else if (pos === 1 && d === 1) result += 'สิบ'
+      else if (pos === 1 && d === 2) result += 'ยี่สิบ'
+      else result += digits[d] + units[pos]
+    }
+    return result
+  }
+  let text = (readInt(baht) || 'ศูนย์') + 'บาท'
+  text += satang === '00' ? 'ถ้วน' : readInt(satang) + 'สตางค์'
+  return text
+}
+
+const BANKS = [
+  { name: 'ธนาคารกสิกรไทย', type: 'ออมทรัพย์', no: '123-4-56789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#138f2d', icon: 'account_balance' },
+  { name: 'ธนาคารไทยพาณิชย์', type: 'ออมทรัพย์', no: '123-456789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#4e2e7f', icon: 'account_balance' },
+  { name: 'ธนาคารกรุงเทพ', type: 'ออมทรัพย์', no: '123-4-56789-0', holder: 'บจก. มิวยู ดีไซน์', brand: '#1e4598', icon: 'account_balance' },
+  { name: 'พร้อมเพย์', type: 'PromptPay', no: '081-234-5678', holder: 'mew.you Studio', brand: '#0d4e8b', icon: 'qr_code_2' },
+]
+
 export default function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -107,6 +147,15 @@ export default function QuotationDetailPage() {
   const st = statusMap[quotation.status] || statusMap.draft
 
   const customerName = quotation.clientName || quotation.customer?.company || quotation.customer?.name || '—'
+
+  const bank = BANKS[quotation.bankIndex] || BANKS[0]
+  const term = (quotation.paymentTerm || '').toLowerCase()
+  const isDeposit = term.includes('deposit') || (quotation.paymentTerm || '').includes('มัดจำ')
+  const payTermNote = isDeposit ? 'มัดจำ 50% ก่อนเริ่มงาน · ส่วนที่เหลือชำระเมื่อส่งมอบงาน' : 'ชำระเต็มจำนวนก่อนเริ่มงาน'
+  const payTermLine = isDeposit ? 'การชำระเงิน : มัดจำ 50% ก่อนเริ่มงาน ที่เหลือชำระเมื่อส่งมอบ' : 'การชำระเงิน : ชำระเต็มจำนวนก่อนเริ่มงาน'
+  const depositAmt = total * 0.5
+  const balanceAmt = total - depositAmt
+  const signDate = quotation.issueDate || ''
 
   return (
     <div>
@@ -192,12 +241,8 @@ export default function QuotationDetailPage() {
             <div style={{ fontSize: 34, fontWeight: 700, color: '#3a4654', lineHeight: 1 }}>ใบเสนอราคา</div>
             <div style={{ fontSize: 15, letterSpacing: 7, color: '#9aa7b2', fontWeight: 500, marginTop: 8 }}>QUOTATION</div>
           </div>
-          <div style={{
-            width: 82, height: 82, background: '#eef1f4', borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <span className="material-symbols-rounded" style={{ fontSize: 36, color: '#8294a6' }}>business</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mewyou-wordmark.png" alt="mew.you" style={{ height: 82, width: 'auto', display: 'block', flexShrink: 0 }} />
         </div>
 
         {/* 2. Info Section: Customer + Metadata */}
@@ -272,9 +317,8 @@ export default function QuotationDetailPage() {
         <div style={{ display: 'flex', gap: 34, flexWrap: 'wrap', marginBottom: 30 }}>
           {/* Seller info */}
           <div style={{ flex: '1.15 1 300px', display: 'flex', gap: 16 }}>
-            <div style={{ width: 96, height: 96, borderRadius: 7, background: '#eef1f4', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 40, color: '#8294a6' }}>storefront</span>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/mewyou-monogram.png" alt="m" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'cover' }} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '4px 12px', borderRadius: 6, marginBottom: 8 }}>
                 ผู้ขอเสนอราคา / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Quotation From</span>
@@ -371,44 +415,119 @@ export default function QuotationDetailPage() {
         </div>
 
         {/* 5. Summary */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-          <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>
-              <span style={{ color: '#5a6772' }}>ราคารวม</span>
-              <span style={{ fontFamily: "'IBM Plex Sans', monospace", color: '#3a4654' }}>฿{fmt(afterDiscount)}</span>
+        <div style={{ display: 'flex', gap: 30, flexWrap: 'wrap', marginTop: 28 }}>
+          <div style={{ flex: '1.05 1 300px' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#3a4654', marginBottom: 14 }}>
+              สรุป <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 13 }}>/ Summary</span>
             </div>
-            {quotation.vatEnabled && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5 }}>
-                <span style={{ color: '#5a6772' }}>ภาษีมูลค่าเพิ่ม 7%</span>
-                <span style={{ fontFamily: "'IBM Plex Sans', monospace", color: '#3a4654' }}>฿{fmt(vat)}</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772', marginBottom: 11 }}>
+              <span>มูลค่ารายการไม่รวมภาษี หรือยกเว้นภาษีมูลค่าเพิ่ม</span>
+              <span style={{ fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(afterDiscount)} บาท</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 14.5, fontWeight: 700, color: '#3a4654' }}>จำนวนเงินทั้งสิ้น</span>
+              <span style={{ fontSize: 17, fontWeight: 700, color: '#6e8aa6', fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(total)} บาท</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: '#7a8893', fontWeight: 600 }}>({bahtText(total)})</div>
+          </div>
+          <div style={{ flex: '1 1 280px' }}>
+            <div style={{ background: '#eef1f4', borderRadius: '9px 9px 0 0', padding: '14px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772', marginBottom: 10 }}>
+                <span>มูลค่าเพิ่ม 7%</span>
+                <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(vat)} บาท</span>
               </div>
-            )}
-            <div style={{ borderTop: '1.5px solid #dde3e8', margin: '2px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#3a4654' }}>รวมทั้งสิ้น</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: '#3a4654', fontFamily: "'IBM Plex Sans', monospace" }}>฿{fmt(total)}</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772' }}>
+                <span>จำนวนเงินที่ต้องชำระ</span>
+                <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(afterDiscount)} บาท</span>
+              </div>
+            </div>
+            <div style={{ background: '#8294a6', borderRadius: '0 0 9px 9px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: '#e8edf2', fontWeight: 500 }}>จำนวนเงินทั้งสิ้น (รวมภาษีมูลค่าเพิ่ม)</span>
+              <span style={{ fontSize: 21, fontWeight: 700, color: '#fff', fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(total)} บาท</span>
             </div>
           </div>
         </div>
 
-        {/* 6. Signatures */}
-        <div style={{
-          display: 'flex', gap: 40, justifyContent: 'flex-end',
-          marginTop: 40, paddingTop: 20, borderTop: '1px dashed #dde3e8',
-        }}>
-          {[
-            { title: 'ผู้ออกเอกสาร', sub: 'Prepared By' },
-            { title: 'ผู้มีอำนาจลงนาม', sub: 'Authorized Signatory' },
-            { title: 'ลูกค้า', sub: 'Customer' },
-          ].map(sig => (
-            <div key={sig.title} style={{ textAlign: 'center', minWidth: 160 }}>
-              <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 2 }}>
-                {sig.title} <span style={{ color: '#a3aeb8' }}>/ {sig.sub}</span>
-              </div>
-              <div style={{ height: 1, background: '#cdd5dc', margin: '50px 0 8px' }} />
-              <div style={{ fontSize: 12.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>วันที่: ___/___/______</div>
+        {/* 6. Payment + Terms */}
+        <div style={{ display: 'flex', gap: 34, flexWrap: 'wrap', marginTop: 34, paddingTop: 26, borderTop: '1px solid #eef1f4' }}>
+          {/* Payment */}
+          <div style={{ flex: '1 1 280px' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4654', marginBottom: 13 }}>
+              ชำระเงิน <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 12.5 }}>/ Payment Information</span>
             </div>
-          ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 9, background: '#fff', border: '1px solid #e4e8ec', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', background: bank.brand, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 15, color: '#fff' }}>{bank.icon}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, color: '#5a6772' }}>{bank.name} <span style={{ color: '#9aa7b2' }}>· {bank.type}</span></div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#3a4654', fontFamily: "'IBM Plex Sans', monospace", letterSpacing: '.5px' }}>{bank.no}</div>
+                <div style={{ fontSize: 11.5, color: '#8a97a2' }}>{bank.holder}</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #f0f2f5', fontSize: 13 }}>
+              <span style={{ color: '#5a6772' }}>หมายเหตุ / Note : </span>
+              <span style={{ color: '#6e8aa6', fontWeight: 600 }}>{payTermNote}</span>
+            </div>
+            {isDeposit && (
+              <div style={{ marginTop: 13, display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1, background: '#eef3f7', borderRadius: 10, padding: '11px 13px' }}>
+                  <div style={{ fontSize: 11, color: '#7e8b96' }}>มัดจำ 50% / Deposit</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#5f7d99', fontFamily: "'IBM Plex Sans', monospace", marginTop: 2 }}>{fmt(depositAmt)} บาท</div>
+                </div>
+                <div style={{ flex: 1, background: '#f5f7f9', borderRadius: 10, padding: '11px 13px' }}>
+                  <div style={{ fontSize: 11, color: '#9aa7b2' }}>คงเหลือ / Balance</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#7a8893', fontFamily: "'IBM Plex Sans', monospace", marginTop: 2 }}>{fmt(balanceAmt)} บาท</div>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Terms */}
+          <div style={{ flex: '1 1 280px' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4654', marginBottom: 13 }}>
+              เงื่อนไข <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 12.5 }}>/ Terms &amp; Conditions</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 12.5, color: '#5a6772', lineHeight: 1.5 }}>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>{payTermLine}</div>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>ระยะเวลาออกแบบ 7-10 วัน ( ไม่รวมพิมพ์ )</div>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>การแก้ไข : แก้ไขได้ไม่จำกัดครั้ง</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}><span style={{ color: '#6e8aa6' }}>•</span><span style={{ color: '#6e8aa6', fontWeight: 600 }}>เป็นเพียงข้อเสนอราคาเท่านั้น</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 7. Signatures */}
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 38 }}>
+          <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ผู้ออกเอกสาร <span style={{ color: '#a3aeb8' }}>/ Prepared By</span></div>
+            <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
+            <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>จิรันต์เวธ ทับทิมแดง</div>
+            <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
+          </div>
+          <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 6 }}>ตราประทับ <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
+            <div style={{ height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/mewyou-wordmark.png" alt="stamp" style={{ height: 30, opacity: 0.4 }} />
+            </div>
+            <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
+            <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>Mew you packaging</div>
+            <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
+          </div>
+          <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ผู้รับใบเสนอราคา <span style={{ color: '#a3aeb8' }}>/ Receiver</span></div>
+            <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
+            <div style={{ fontSize: 12.5, color: '#c4cdd5' }}>&nbsp;</div>
+            <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
+          </div>
+          <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ตราประทับ <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
+            <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
+            <div style={{ fontSize: 12.5, color: '#c4cdd5' }}>&nbsp;</div>
+            <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
+          </div>
         </div>
       </div>
     </div>
