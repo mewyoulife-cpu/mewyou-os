@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   const [projects, expenses, docs] = await Promise.all([
-    prisma.project.findMany({ select: { value: true, cost: true, type: true, status: true } }),
+    prisma.project.findMany({ select: { value: true, cost: true, type: true, status: true, createdAt: true } }),
     prisma.expense.findMany({ orderBy: { date: 'desc' } }),
     prisma.document.findMany({ where: { type: 'invoice' }, select: { status: true, items: true, discount: true, vatEnabled: true } }),
   ])
