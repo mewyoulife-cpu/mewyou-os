@@ -38,11 +38,24 @@ const SERVICES: [string, number][] = [
   ['Brochure Design', 6000],
 ]
 
-const BANKS = [
-  { bank: 'ธนาคารกสิกรไทย', brand: '#1aa84a', icon: 'eco', no: '041-8-63463-4', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'ออมทรัพย์' },
-  { bank: 'ธนาคารไทยพาณิชย์', brand: '#4e2a84', icon: 'savings', no: '264-2-51789-0', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'ออมทรัพย์' },
-  { bank: 'ธนาคารกรุงเทพ', brand: '#1e4598', icon: 'account_balance', no: '195-0-44217-6', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', type: 'กระแสรายวัน' },
-  { bank: 'พร้อมเพย์ / PromptPay', brand: '#0a3a6b', icon: 'qr_code_2', no: '0-1055-60143-09-9', name: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', type: 'เลขประจำตัวผู้เสียภาษี' },
+interface BankView { bank: string; no: string; name: string; brand: string; icon: string }
+
+function bankBrand(name: string): { brand: string; icon: string } {
+  const n = name || ''
+  if (n.includes('กสิกร') || /kbank/i.test(n)) return { brand: '#1aa84a', icon: 'eco' }
+  if (n.includes('ไทยพาณิชย์') || /scb/i.test(n)) return { brand: '#4e2a84', icon: 'savings' }
+  if (n.includes('กรุงเทพ') || /bbl/i.test(n)) return { brand: '#1e4598', icon: 'account_balance' }
+  if (n.includes('พร้อมเพย์') || /promptpay/i.test(n)) return { brand: '#0a3a6b', icon: 'qr_code_2' }
+  if (n.includes('กรุงไทย') || /ktb/i.test(n)) return { brand: '#00a4e4', icon: 'account_balance' }
+  if (n.includes('กรุงศรี')) return { brand: '#fdb913', icon: 'account_balance' }
+  return { brand: '#5f7d99', icon: 'account_balance' }
+}
+
+const FALLBACK_BANKS: BankView[] = [
+  { bank: 'ธนาคารกสิกรไทย', no: '041-8-63463-4', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1aa84a', icon: 'eco' },
+  { bank: 'ธนาคารไทยพาณิชย์', no: '264-2-51789-0', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#4e2a84', icon: 'savings' },
+  { bank: 'ธนาคารกรุงเทพ', no: '195-0-44217-6', name: 'บริษัท มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค จำกัด', brand: '#1e4598', icon: 'account_balance' },
+  { bank: 'พร้อมเพย์ / PromptPay', no: '0-1055-60143-09-9', name: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', brand: '#0a3a6b', icon: 'qr_code_2' },
 ]
 
 function fmt(n: number) {
@@ -79,6 +92,7 @@ export default function NewQuotationPage() {
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [banks, setBanks] = useState<BankView[]>([])
   const [quoteNo, setQuoteNo] = useState('QO-25690600003')
   const [saving, setSaving] = useState(false)
 
@@ -107,6 +121,14 @@ export default function NewQuotationPage() {
       const list = Array.isArray(d) ? d : []
       const nums = list.map((q: { no?: string }) => parseInt(String(q.no || '').replace(/\D/g, ''), 10) || 0)
       setQuoteNo('QO-' + (Math.max(25690600002, ...nums) + 1))
+    }).catch(() => {})
+    fetch('/api/banks').then(r => r.json()).then(d => {
+      const list: { bank: string; accountNo: string; name: string; isDefault?: boolean }[] = Array.isArray(d) ? d : []
+      if (!list.length) return
+      const mapped: BankView[] = list.map(b => ({ bank: b.bank, no: b.accountNo, name: b.name, ...bankBrand(b.bank) }))
+      setBanks(mapped)
+      const defIdx = list.findIndex(b => b.isDefault)
+      if (defIdx > 0) setForm(f => ({ ...f, bankIndex: defIdx }))
     }).catch(() => {})
   }, [])
 
@@ -153,7 +175,8 @@ export default function NewQuotationPage() {
   const deposit = grand * 0.5
   const balance = grand - deposit
   const isDeposit = form.paymentTerm === 'deposit50'
-  const bank = BANKS[form.bankIndex] || BANKS[0]
+  const bankList = banks.length ? banks : FALLBACK_BANKS
+  const bank = bankList[form.bankIndex] || bankList[0]
 
   async function handleSave(status: 'draft' | 'sent', dest: 'list' | 'detail' = 'detail') {
     if (saving) return
@@ -411,14 +434,14 @@ export default function NewQuotationPage() {
           <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1.5px solid #eef1f4' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#3b4954', marginBottom: 9 }}>บัญชีรับชำระเงิน</div>
             <select value={form.bankIndex} onChange={e => setField('bankIndex', Number(e.target.value))} style={{ width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 40, padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45', outline: 'none', background: '#fff', boxSizing: 'border-box', marginBottom: 11 }}>
-              {BANKS.map((b, i) => <option key={i} value={i}>{b.bank} · {b.no}</option>)}
+              {bankList.map((b, i) => <option key={i} value={i}>{b.bank} · {b.no}</option>)}
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#f5f7f9', borderRadius: 11, padding: '12px 13px' }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: bank.brand, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#fff' }}>{bank.icon}</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, color: '#5b6b77' }}>{bank.bank} · {bank.type}</div>
+                <div style={{ fontSize: 12.5, color: '#5b6b77', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bank.bank} · {bank.name}</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{bank.no}</div>
               </div>
             </div>

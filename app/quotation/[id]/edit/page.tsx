@@ -219,6 +219,14 @@ export default function EditQuotationPage() {
           <button
             onClick={handleSave}
             disabled={saving || incomplete}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px', border: '1px solid #e4e8ec', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', fontWeight: 500, cursor: saving || incomplete ? 'not-allowed' : 'pointer', background: '#fff', opacity: saving ? 0.7 : 1 }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>visibility</span>
+            ดูตัวอย่าง
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || incomplete}
             style={{ display: 'flex', alignItems: 'center', gap: 7, height: 40, padding: '0 18px', border: 'none', borderRadius: 10, background: incomplete ? '#c8d4de' : '#5f7d99', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: saving || incomplete ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>save</span>
