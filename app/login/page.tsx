@@ -78,8 +78,8 @@ function LoginForm() {
       {/* Headline overlay (top) */}
       <div className="login-overlay login-headline">
         <div style={{ fontSize: 27, fontWeight: 500, lineHeight: 1.15, marginBottom: 2 }}>Design management</div>
-        <div style={{ fontSize: 18, fontWeight: 400, opacity: 0.92 }}>built for your studio</div>
-        <div style={{ fontSize: 15, fontWeight: 400, opacity: 0.9, marginTop: 4, maxWidth: 760 }}>
+        <div style={{ fontSize: 18, fontWeight: 400, opacity: 1 }}>built for your studio</div>
+        <div style={{ fontSize: 15, fontWeight: 400, opacity: 1, marginTop: 4, maxWidth: 760 }}>
           Manage projects, clients, quotations, and finances all in one place. Run every packaging design job with a clear system.
         </div>
       </div>
@@ -89,7 +89,7 @@ function LoginForm() {
         <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'IBM Plex Sans', sans-serif" }}>
           {stats ? stats.projectCount : '—'}
         </div>
-        <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 0.92 }}>Projects</div>
+        <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 1 }}>Projects</div>
       </div>
 
       {/* Live stat — right */}
@@ -97,7 +97,7 @@ function LoginForm() {
         <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'IBM Plex Sans', sans-serif" }}>
           {stats ? formatSales(stats.salesThisYear) : '—'}
         </div>
-        <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 0.92 }}>Sales this year</div>
+        <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 1 }}>Sales this year</div>
       </div>
 
       {/* Copyright */}
@@ -106,29 +106,29 @@ function LoginForm() {
       {/* Glass card */}
       <form onSubmit={submit} className="login-glass">
         {/* Logo */}
-        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: 'rgba(255,255,255,0.92)', marginBottom: 26 }}>
+        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: '#ffffff', marginBottom: 26 }}>
           <div>mew.</div>
           <div style={{ marginLeft: 16 }}>you</div>
         </div>
 
         <div style={{ fontSize: 30, fontWeight: 700, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
-        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.45, marginBottom: 26 }}>
+        <div style={{ fontSize: 14, color: '#ffffff', lineHeight: 1.45, marginBottom: 26 }}>
           Please login to your account<br />to continue
         </div>
 
         {/* Email */}
         <label style={label}>Email</label>
         <div style={{ ...fieldWrap, marginBottom: 18 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)' }}>mail</span>
+          <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#ffffff' }}>mail</span>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@mewyou.studio" style={input} autoComplete="username" />
         </div>
 
         {/* Password */}
         <label style={label}>Password</label>
         <div style={{ ...fieldWrap, marginBottom: 12 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)' }}>lock</span>
+          <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#ffffff' }}>lock</span>
           <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={input} autoComplete="current-password" />
-          <span onClick={() => setShowPw(v => !v)} className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)', cursor: 'pointer' }}>{showPw ? 'visibility_off' : 'visibility'}</span>
+          <span onClick={() => setShowPw(v => !v)} className="material-symbols-rounded" style={{ fontSize: 19, color: '#ffffff', cursor: 'pointer' }}>{showPw ? 'visibility_off' : 'visibility'}</span>
         </div>
 
         <div style={{ textAlign: 'right', marginBottom: 20 }}>
@@ -153,7 +153,7 @@ function LoginForm() {
           {!loading && <span className="material-symbols-rounded" style={{ fontSize: 19 }}>arrow_forward</span>}
         </button>
 
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#ffffff' }}>
           Don&apos;t have an account? <span style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>Sign up</span>
         </div>
       </form>
