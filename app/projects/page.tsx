@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -32,6 +32,76 @@ const KANBAN_COLUMNS = [
 
 function fmtValue(n: number) {
   return '฿' + n.toLocaleString('th-TH')
+}
+
+// A small dropdown filter (status / work type) with click-outside handling.
+function FilterDropdown({ label, value, options, onChange }: {
+  label: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const active = options.find(o => o.value === value)
+  const isFiltered = value !== 'all'
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px',
+          border: `1px solid ${isFiltered ? '#5f7d99' : '#eaedf0'}`, borderRadius: 10,
+          fontSize: 13.5, color: isFiltered ? '#5f7d99' : '#5b6b77', fontWeight: isFiltered ? 600 : 400,
+          cursor: 'pointer', background: isFiltered ? '#eef3f7' : '#fff', whiteSpace: 'nowrap',
+        }}
+      >
+        {isFiltered ? active?.label : label}
+        <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
+          background: '#fff', border: '1px solid #e4e8ec', borderRadius: 12,
+          boxShadow: '0 12px 32px rgba(47,59,69,.14)', padding: 6, minWidth: 180,
+          maxHeight: 320, overflowY: 'auto',
+        }}>
+          {options.map(o => {
+            const sel = o.value === value
+            return (
+              <div
+                key={o.value}
+                onClick={() => { onChange(o.value); setOpen(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  height: 36, padding: '0 11px', borderRadius: 8, cursor: 'pointer',
+                  fontSize: 13.5, color: sel ? '#5f7d99' : '#3b4954', fontWeight: sel ? 600 : 400,
+                  background: sel ? '#eef3f7' : 'transparent',
+                }}
+                onMouseEnter={e => { if (!sel) e.currentTarget.style.background = '#f5f7f9' }}
+                onMouseLeave={e => { if (!sel) e.currentTarget.style.background = 'transparent' }}
+              >
+                {o.label}
+                {sel && <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 type Project = {
@@ -153,6 +223,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
 
   useEffect(() => {
     fetch('/api/projects')
@@ -161,8 +233,26 @@ export default function ProjectsPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  // Status options: only statuses present in the data, ordered by progress.
+  const statusOptions = [
+    { value: 'all', label: 'ทุกสถานะ' },
+    ...Array.from(new Set(projects.map(p => p.status)))
+      .sort((a, b) => (STATUS_PROGRESS[a] ?? 999) - (STATUS_PROGRESS[b] ?? 999))
+      .map(s => ({ value: s, label: STATUS_MAP[s]?.label || s })),
+  ]
+  // Type options: distinct work types present in the data.
+  const typeOptions = [
+    { value: 'all', label: 'ทุกประเภท' },
+    ...Array.from(new Set(projects.map(p => p.type).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'th'))
+      .map(t => ({ value: t, label: t })),
+  ]
+
   const filtered = projects.filter(p => {
-    const q = search.toLowerCase()
+    if (statusFilter !== 'all' && p.status !== statusFilter) return false
+    if (typeFilter !== 'all' && p.type !== typeFilter) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
     return (
       p.code.toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q) ||
@@ -172,6 +262,7 @@ export default function ProjectsPage() {
   })
 
   const activeCount = projects.filter(p => !['completed', 'lead'].includes(p.status)).length
+  const hasFilter = statusFilter !== 'all' || typeFilter !== 'all' || search.trim() !== ''
 
   return (
     <div style={{ color: '#2f3b45' }}>
@@ -180,7 +271,11 @@ export default function ProjectsPage() {
         <div>
           <div style={{ fontSize: 23, fontWeight: 700, color: '#2f3b45' }}>โปรเจกต์ทั้งหมด</div>
           <div style={{ fontSize: 13.5, color: '#7a8893', marginTop: 2 }}>
-            {loading ? 'กำลังโหลด...' : `ทั้งหมด ${projects.length} โปรเจกต์ · กำลังดำเนินการ ${activeCount}`}
+            {loading
+              ? 'กำลังโหลด...'
+              : hasFilter
+                ? `พบ ${filtered.length} จาก ${projects.length} โปรเจกต์`
+                : `ทั้งหมด ${projects.length} โปรเจกต์ · กำลังดำเนินการ ${activeCount}`}
           </div>
         </div>
         <Link
@@ -205,12 +300,17 @@ export default function ProjectsPage() {
               style={{ border: 'none', outline: 'none', background: 'transparent', flex: 1, fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45' }}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px', border: '1px solid #eaedf0', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', cursor: 'pointer', background: '#fff' }}>
-            สถานะ<span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>expand_more</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 14px', border: '1px solid #eaedf0', borderRadius: 10, fontSize: 13.5, color: '#5b6b77', cursor: 'pointer', background: '#fff' }}>
-            ประเภทงาน<span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>expand_more</span>
-          </div>
+          <FilterDropdown label="สถานะ" value={statusFilter} options={statusOptions} onChange={setStatusFilter} />
+          <FilterDropdown label="ประเภทงาน" value={typeFilter} options={typeOptions} onChange={setTypeFilter} />
+          {hasFilter && (
+            <div
+              onClick={() => { setStatusFilter('all'); setTypeFilter('all'); setSearch('') }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, height: 40, padding: '0 12px', borderRadius: 10, fontSize: 13, color: '#9aa7b2', cursor: 'pointer', background: 'transparent' }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: 17 }}>close</span>
+              ล้างตัวกรอง
+            </div>
+          )}
           {/* View toggle */}
           <div style={{ display: 'flex', gap: 4, background: '#f5f7f9', border: '1px solid #eaedf0', borderRadius: 11, padding: 3 }}>
             {(['list', 'kanban'] as const).map(v => (
@@ -247,7 +347,7 @@ export default function ProjectsPage() {
             {filtered.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#9aa7b2', padding: '48px 0' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>folder_open</span>
-                ยังไม่มีโปรเจกต์
+                {hasFilter ? 'ไม่พบโปรเจกต์ที่ตรงกับตัวกรอง' : 'ยังไม่มีโปรเจกต์'}
               </div>
             ) : filtered.map(p => {
               const pct = STATUS_PROGRESS[p.status] || 0
