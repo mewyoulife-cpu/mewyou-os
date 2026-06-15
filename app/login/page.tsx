@@ -60,17 +60,17 @@ function LoginForm() {
   }
 
   const label: React.CSSProperties = {
-    display: 'block', fontSize: 12.5, fontWeight: 600, color: '#4a525c', marginBottom: 7,
+    display: 'block', fontSize: 12.5, fontWeight: 600, color: '#ffffff', marginBottom: 7,
   }
   const fieldWrap: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 11,
-    background: 'rgba(255,255,255,0.22)',
-    border: '1px solid rgba(120,128,138,0.32)',
+    background: 'rgba(255,255,255,0.16)',
+    border: '1px solid rgba(255,255,255,0.5)',
     borderRadius: 13, height: 50, padding: '0 15px',
   }
   const input: React.CSSProperties = {
     flex: 1, border: 'none', outline: 'none', background: 'transparent',
-    fontFamily: 'inherit', fontSize: 14.5, color: '#3a4047',
+    fontFamily: 'inherit', fontSize: 14.5, color: '#ffffff',
   }
 
   return (
@@ -106,37 +106,37 @@ function LoginForm() {
       {/* Glass card */}
       <form onSubmit={submit} className="login-glass">
         {/* Logo */}
-        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: '#8b94a1', marginBottom: 26 }}>
+        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: 'rgba(255,255,255,0.92)', marginBottom: 26 }}>
           <div>mew.</div>
           <div style={{ marginLeft: 16 }}>you</div>
         </div>
 
-        <div style={{ fontSize: 30, fontWeight: 700, color: '#2f3540', marginBottom: 8 }}>Welcome back</div>
-        <div style={{ fontSize: 14, color: '#6a7078', lineHeight: 1.45, marginBottom: 26 }}>
+        <div style={{ fontSize: 30, fontWeight: 700, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.45, marginBottom: 26 }}>
           Please login to your account<br />to continue
         </div>
 
         {/* Email */}
         <label style={label}>Email</label>
         <div style={{ ...fieldWrap, marginBottom: 18 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8b94a1' }}>mail</span>
+          <span className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)' }}>mail</span>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@mewyou.studio" style={input} autoComplete="username" />
         </div>
 
         {/* Password */}
         <label style={label}>Password</label>
         <div style={{ ...fieldWrap, marginBottom: 12 }}>
-          <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8b94a1' }}>lock</span>
+          <span className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)' }}>lock</span>
           <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={input} autoComplete="current-password" />
-          <span onClick={() => setShowPw(v => !v)} className="material-symbols-rounded" style={{ fontSize: 19, color: '#8b94a1', cursor: 'pointer' }}>{showPw ? 'visibility_off' : 'visibility'}</span>
+          <span onClick={() => setShowPw(v => !v)} className="material-symbols-rounded" style={{ fontSize: 19, color: 'rgba(255,255,255,0.92)', cursor: 'pointer' }}>{showPw ? 'visibility_off' : 'visibility'}</span>
         </div>
 
         <div style={{ textAlign: 'right', marginBottom: 20 }}>
-          <span style={{ fontSize: 13, color: '#5a6573', textDecoration: 'underline', cursor: 'pointer' }}>Forgot password?</span>
+          <span style={{ fontSize: 13, color: '#ffffff', textDecoration: 'underline', cursor: 'pointer' }}>Forgot password?</span>
         </div>
 
         {error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(252,238,232,0.85)', color: '#c4593f', borderRadius: 11, padding: '10px 13px', fontSize: 13, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(190,72,55,0.40)', color: '#ffffff', borderRadius: 11, padding: '10px 13px', fontSize: 13, marginBottom: 16 }}>
             <span className="material-symbols-rounded" style={{ fontSize: 18 }}>error</span>
             {error}
           </div>
@@ -153,8 +153,8 @@ function LoginForm() {
           {!loading && <span className="material-symbols-rounded" style={{ fontSize: 19 }}>arrow_forward</span>}
         </button>
 
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#6a7078' }}>
-          Don&apos;t have an account? <span style={{ color: '#3a4047', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>Sign up</span>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
+          Don&apos;t have an account? <span style={{ color: '#ffffff', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>Sign up</span>
         </div>
       </form>
     </div>
