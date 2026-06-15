@@ -108,7 +108,7 @@ function LoginForm() {
         {/* Logo */}
         <div style={{ marginBottom: 26 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mewyou-logo-white.png" alt="mew.you" style={{ width: 84, height: 'auto', display: 'block' }} />
+          <img src="/mewyou-logo-white.png" alt="mew.you" style={{ width: 100, height: 'auto', display: 'block' }} />
         </div>
 
         <div style={{ fontSize: 30, fontWeight: 500, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
