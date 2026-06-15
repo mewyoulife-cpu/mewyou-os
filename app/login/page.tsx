@@ -106,9 +106,9 @@ function LoginForm() {
       {/* Glass card */}
       <form onSubmit={submit} className="login-glass">
         {/* Logo */}
-        <div style={{ fontFamily: "'Poppins', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: '#ffffff', marginBottom: 26 }}>
-          <div>mew.</div>
-          <div style={{ marginLeft: 16 }}>you</div>
+        <div style={{ marginBottom: 26 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mewyou-logo-white.png" alt="mew.you" style={{ width: 84, height: 'auto', display: 'block' }} />
         </div>
 
         <div style={{ fontSize: 30, fontWeight: 700, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
