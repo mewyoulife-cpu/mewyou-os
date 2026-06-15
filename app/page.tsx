@@ -181,7 +181,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
       {/* KPI Cards */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
         {kpis.map((kp) => (
-          <div key={kp.label} style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
+          <div key={kp.label} className="glass-card" style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
               <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9fb0bf' }}>{kp.icon}</span>
               {kp.label}
@@ -206,14 +206,14 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           {/* Charts row */}
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {/* Donut */}
-            <div style={{ ...card, flex: '1 1 260px', padding: 22 }}>
+            <div className="glass-card" style={{ ...card, flex: '1 1 260px', padding: 22 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', marginBottom: 6 }}>ภาพรวมโปรเจกต์</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
                 <DashboardCharts donutData={donutData} salesData={data.salesChart.data} salesMonths={data.salesChart.labels} mode="donut" />
               </div>
             </div>
             {/* Line chart */}
-            <div style={{ ...card, flex: '1 1 320px', padding: 22 }}>
+            <div className="glass-card" style={{ ...card, flex: '1 1 320px', padding: 22 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>
                   ยอดขาย <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span>
@@ -228,7 +228,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           </div>
 
           {/* Recent Projects Table */}
-          <div style={{ ...card, padding: 22 }}>
+          <div className="glass-card" style={{ ...card, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span></div>
               <Link href="/projects" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13.5, color: '#4f7bb0', fontWeight: 500, textDecoration: 'none' }}>
@@ -281,7 +281,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           </div>
 
           {/* Priority leaks */}
-          <div style={{ ...card, padding: '20px 22px' }}>
+          <div className="glass-card" style={{ ...card, padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 15 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fbe9e5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -361,7 +361,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           </div>
 
           {/* Mini Calendar */}
-          <div style={{ ...card, padding: 20 }}>
+          <div className="glass-card" style={{ ...card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
               <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ปฏิทินงานวันนี้</div>
               <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>expand_more</span>
@@ -398,7 +398,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           </div>
 
           {/* Tasks */}
-          <div style={{ ...card, padding: 20 }}>
+          <div className="glass-card" style={{ ...card, padding: 20 }}>
             <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ภารกิจที่ต้องทำ</div>
             {data.tasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
@@ -414,7 +414,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           </div>
 
           {/* Activity Feed */}
-          <div style={{ ...card, padding: 20 }}>
+          <div className="glass-card" style={{ ...card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>กิจกรรมล่าสุด</div>
               <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>ดูทั้งหมด</div>

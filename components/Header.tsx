@@ -1,8 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useTheme } from './ThemeContext'
 
 export default function Header() {
+  const { theme, toggle } = useTheme()
+  const glass = theme === 'glass'
   return (
     <header style={{
       height: 72,
@@ -39,6 +42,35 @@ export default function Header() {
             color: '#2f3b45',
           }}
         />
+      </div>
+
+      {/* Theme toggle (normal ↔ glassmorphism) */}
+      <div
+        onClick={toggle}
+        title={glass ? 'โหมดปกติ' : 'โหมด Glassmorphism'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          height: 44,
+          padding: '0 14px',
+          borderRadius: 12,
+          background: glass ? 'rgba(255,255,255,0.55)' : '#ffffff',
+          border: glass ? '1px solid rgba(255,255,255,0.7)' : '1px solid #e4e8ec',
+          WebkitBackdropFilter: glass ? 'blur(12px)' : undefined,
+          backdropFilter: glass ? 'blur(12px)' : undefined,
+          cursor: 'pointer',
+          flexShrink: 0,
+          fontSize: 13,
+          fontWeight: 600,
+          color: glass ? '#3d6e8e' : '#5b6b77',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span className="material-symbols-rounded" style={{ fontSize: 20, color: glass ? '#3d6e8e' : '#9aa7b2' }}>
+          {glass ? 'blur_on' : 'blur_off'}
+        </span>
+        {glass ? 'Glass' : 'ปกติ'}
       </div>
 
       {/* Notification Bell */}
