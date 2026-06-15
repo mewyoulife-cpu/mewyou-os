@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useTheme } from './ThemeContext'
 
 async function logout(router: ReturnType<typeof useRouter>) {
   if (!confirm('ออกจากระบบ?')) return
@@ -31,6 +32,8 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { theme } = useTheme()
+  const glass = theme === 'glass'
   const [brandLogo, setBrandLogo] = useState<string | null>(null)
 
   useEffect(() => {
@@ -41,6 +44,14 @@ export default function Sidebar() {
     if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
+
+  // Theme-aware palette (glass = light frosted sidebar with dark text).
+  const navIdle = glass ? '#51606e' : '#cddae4'
+  const navActiveBg = glass ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.95)'
+  const navActiveColor = glass ? '#3d6e8e' : '#5f7d99'
+  const subColor = glass ? '#62707c' : '#cddae4'
+  const profileBg = glass ? 'rgba(255,255,255,0.42)' : 'rgba(255,255,255,.12)'
+  const nameColor = glass ? '#2f3b45' : '#ffffff'
 
   return (
     <aside style={{
@@ -62,10 +73,10 @@ export default function Sidebar() {
             alt="mewyou"
             width={150}
             height={46}
-            style={{ objectFit: 'contain', display: 'block' }}
+            style={{ objectFit: 'contain', display: 'block', filter: glass ? 'invert(0.72)' : undefined }}
           />
         )}
-        <div style={{ fontSize: 8.5, letterSpacing: 4, color: '#cddae4', fontWeight: 600 }}>
+        <div style={{ fontSize: 8.5, letterSpacing: 4, color: subColor, fontWeight: 600 }}>
           DESIGN OS
         </div>
       </div>
@@ -86,8 +97,8 @@ export default function Sidebar() {
                 height: 40,
                 borderRadius: 10,
                 textDecoration: 'none',
-                background: active ? 'rgba(255,255,255,0.95)' : 'transparent',
-                color: active ? '#5f7d99' : '#cddae4',
+                background: active ? navActiveBg : 'transparent',
+                color: active ? navActiveColor : navIdle,
                 fontWeight: active ? 600 : 400,
                 fontSize: 14,
                 transition: 'background 0.15s, color 0.15s',
@@ -101,7 +112,7 @@ export default function Sidebar() {
                   fontFeatureSettings: "'liga'",
                   lineHeight: 1,
                   flexShrink: 0,
-                  color: active ? '#5f7d99' : '#cddae4',
+                  color: active ? navActiveColor : navIdle,
                 }}
               >
                 {item.icon}
@@ -113,15 +124,15 @@ export default function Sidebar() {
       </nav>
 
       {/* User profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 14, background: 'rgba(255,255,255,.12)', marginTop: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', borderRadius: 14, background: profileBg, marginTop: 12 }}>
         <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg,#cdd9e3,#a9bccd)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: '#54697d', fontSize: 15 }}>
           M
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mewyou Studio</div>
-          <div style={{ fontSize: 11.5, color: '#cddae4' }}>Owner · Admin</div>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mewyou Studio</div>
+          <div style={{ fontSize: 11.5, color: subColor }}>Owner · Admin</div>
         </div>
-        <span onClick={() => logout(router)} title="ออกจากระบบ" className="material-symbols-rounded" style={{ fontSize: 20, color: '#cddae4', cursor: 'pointer', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}>logout</span>
+        <span onClick={() => logout(router)} title="ออกจากระบบ" className="material-symbols-rounded" style={{ fontSize: 20, color: subColor, cursor: 'pointer', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}>logout</span>
       </div>
     </aside>
   )
