@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { nextDocSeq } from '@/lib/docNumber'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -19,18 +20,17 @@ const STRING_FIELDS = [
   'delivery', 'notes',
 ] as const
 
-async function nextSequence(prefix: string, year: number): Promise<number> {
-  // Derive the next number from the highest existing sequence, not the row count —
-  // counts drift after deletes and cause duplicate-`no` collisions.
+// Highest existing sequence for this prefix+year — used only to seed the
+// persistent counter the first time (so numbering continues from legacy rows).
+async function currentMaxSeq(prefix: string, year: number): Promise<number> {
   const existing = await prisma.document.findMany({
     where: { no: { startsWith: `${prefix}-${year}-` } },
     select: { no: true },
   })
-  const maxSeq = existing.reduce((m, d) => {
+  return existing.reduce((m, d) => {
     const n = parseInt(d.no.split('-')[2] || '0', 10)
     return Number.isFinite(n) && n > m ? n : m
   }, 0)
-  return maxSeq + 1
 }
 
 export async function POST(req: Request) {
@@ -49,18 +49,18 @@ export async function POST(req: Request) {
     if (body[f] !== undefined) data[f] = body[f] === '' ? null : body[f]
   }
 
-  let seq = await nextSequence(prefix, year)
+  // Allocate from the persistent counter so numbers never repeat after deletes.
+  const key = `${prefix}-${year}`
   for (let attempt = 0; attempt < 5; attempt++) {
+    const seq = await nextDocSeq(key, () => currentMaxSeq(prefix, year))
     const no = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
     try {
       const doc = await prisma.document.create({ data: { ...data, no } as Parameters<typeof prisma.document.create>[0]['data'] })
       return NextResponse.json(doc)
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
-      if (msg.includes('Unique constraint') || msg.includes('P2002')) {
-        seq += 1
-        continue
-      }
+      // Collision with a legacy number → take the next counter value and retry.
+      if (msg.includes('Unique constraint') || msg.includes('P2002')) continue
       return NextResponse.json({ error: msg || 'create failed' }, { status: 400 })
     }
   }

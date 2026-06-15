@@ -165,3 +165,12 @@ model Settings {
   favicon         String?
   brandLogo       String?
 }
+
+// Persistent running counter for document numbers (QO/INV/REC/TAX) per year.
+// Numbers are allocated from here so they keep climbing and never repeat —
+// even after documents are deleted.
+model DocumentCounter {
+  key       String   @id // e.g. "QO-2569", "INV-2569"
+  seq       Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
