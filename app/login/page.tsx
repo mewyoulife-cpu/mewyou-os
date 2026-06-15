@@ -111,7 +111,7 @@ function LoginForm() {
           <img src="/mewyou-logo-white.png" alt="mew.you" style={{ width: 84, height: 'auto', display: 'block' }} />
         </div>
 
-        <div style={{ fontSize: 30, fontWeight: 700, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
+        <div style={{ fontSize: 30, fontWeight: 500, color: '#ffffff', marginBottom: 8 }}>Welcome back</div>
         <div style={{ fontSize: 14, color: '#ffffff', lineHeight: 1.45, marginBottom: 26 }}>
           Please login to your account<br />to continue
         </div>
