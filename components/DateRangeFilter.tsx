@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PRESET_ORDER, PRESET_LABELS, resolveRange, type RangePreset } from '@/lib/dateRanges'
+import { useI18n } from '@/components/I18nContext'
 
 export interface RangeState {
   preset: RangePreset
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function DateRangeFilter({ value, onChange }: Props) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [showCustom, setShowCustom] = useState(false)
   const [draftFrom, setDraftFrom] = useState(value.customFrom || '')
@@ -62,7 +64,7 @@ export default function DateRangeFilter({ value, onChange }: Props) {
         }}
       >
         <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#7a8893' }}>calendar_month</span>
-        {label}
+        {t(label)}
         <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#9aa7b2' }}>
           {open ? 'expand_less' : 'expand_more'}
         </span>
@@ -91,7 +93,7 @@ export default function DateRangeFilter({ value, onChange }: Props) {
                 onMouseEnter={e => { if (!active) (e.currentTarget.style.background = '#f5f7f9') }}
                 onMouseLeave={e => { if (!active) (e.currentTarget.style.background = 'transparent') }}
               >
-                {PRESET_LABELS[preset]}
+                {t(PRESET_LABELS[preset])}
                 {active && <span className="material-symbols-rounded" style={{ fontSize: 17 }}>check</span>}
                 {preset === 'custom' && !active && <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#9aa7b2' }}>chevron_right</span>}
               </button>
@@ -100,10 +102,10 @@ export default function DateRangeFilter({ value, onChange }: Props) {
 
           {showCustom && (
             <div style={{ borderTop: '1px solid #f0f2f5', marginTop: 6, padding: '10px 6px 4px' }}>
-              <label style={{ display: 'block', fontSize: 11.5, color: '#7a8893', marginBottom: 4 }}>ตั้งแต่วันที่</label>
+              <label style={{ display: 'block', fontSize: 11.5, color: '#7a8893', marginBottom: 4 }}>{t('ตั้งแต่วันที่')}</label>
               <input type="date" value={draftFrom} max={draftTo || undefined} onChange={e => setDraftFrom(e.target.value)}
                 style={{ width: '100%', height: 36, border: '1px solid #e4e8ec', borderRadius: 8, padding: '0 10px', fontFamily: 'inherit', fontSize: 13, color: '#2f3b45', marginBottom: 9 }} />
-              <label style={{ display: 'block', fontSize: 11.5, color: '#7a8893', marginBottom: 4 }}>ถึงวันที่</label>
+              <label style={{ display: 'block', fontSize: 11.5, color: '#7a8893', marginBottom: 4 }}>{t('ถึงวันที่')}</label>
               <input type="date" value={draftTo} min={draftFrom || undefined} onChange={e => setDraftTo(e.target.value)}
                 style={{ width: '100%', height: 36, border: '1px solid #e4e8ec', borderRadius: 8, padding: '0 10px', fontFamily: 'inherit', fontSize: 13, color: '#2f3b45', marginBottom: 10 }} />
               <button onClick={applyCustom} disabled={!draftFrom || !draftTo}
@@ -113,7 +115,7 @@ export default function DateRangeFilter({ value, onChange }: Props) {
                   fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
                   cursor: draftFrom && draftTo ? 'pointer' : 'not-allowed',
                 }}>
-                ใช้ช่วงวันที่นี้
+                {t('ใช้ช่วงวันที่นี้')}
               </button>
             </div>
           )}

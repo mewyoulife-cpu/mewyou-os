@@ -5,9 +5,10 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useTheme } from './ThemeContext'
+import { useI18n } from './I18nContext'
 
-async function logout(router: ReturnType<typeof useRouter>) {
-  if (!confirm('ออกจากระบบ?')) return
+async function logout(router: ReturnType<typeof useRouter>, confirmMsg: string) {
+  if (!confirm(confirmMsg)) return
   try {
     await fetch('/api/auth/logout', { method: 'POST' })
   } catch {
@@ -33,6 +34,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { theme } = useTheme()
+  const { t } = useI18n()
   const glass = theme === 'glass'
   const [brandLogo, setBrandLogo] = useState<string | null>(null)
 
@@ -117,7 +119,7 @@ export default function Sidebar() {
               >
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </Link>
           )
         })}
@@ -132,7 +134,7 @@ export default function Sidebar() {
           <div style={{ fontSize: 13.5, fontWeight: 600, color: nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mewyou Studio</div>
           <div style={{ fontSize: 11.5, color: subColor }}>Owner · Admin</div>
         </div>
-        <span onClick={() => logout(router)} title="ออกจากระบบ" className="material-symbols-rounded" style={{ fontSize: 20, color: subColor, cursor: 'pointer', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}>logout</span>
+        <span onClick={() => logout(router, t('ออกจากระบบ?'))} title={t('ออกจากระบบ')} className="material-symbols-rounded" style={{ fontSize: 20, color: subColor, cursor: 'pointer', fontFamily: "'Material Symbols Rounded'", fontFeatureSettings: "'liga'" }}>logout</span>
       </div>
     </aside>
   )

@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import BrandApplier from '@/components/BrandApplier'
 import { ThemeProvider, useTheme } from '@/components/ThemeContext'
+import { I18nProvider } from '@/components/I18nContext'
 
 // Routes that render without the app chrome (sidebar / header).
 const BARE_ROUTES = ['/login']
@@ -38,7 +39,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeProvider>
-      <Chrome>{children}</Chrome>
+      <I18nProvider>
+        <Chrome>{children}</Chrome>
+      </I18nProvider>
     </ThemeProvider>
   )
 }

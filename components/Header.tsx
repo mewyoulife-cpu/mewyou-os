@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { useTheme } from './ThemeContext'
+import { useI18n } from './I18nContext'
 
 export default function Header() {
   const { theme, toggle } = useTheme()
+  const { lang, setLang, t } = useI18n()
   const glass = theme === 'glass'
   return (
     <header style={{
@@ -31,7 +33,7 @@ export default function Header() {
       }}>
         <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#9aa7b2' }}>search</span>
         <input
-          placeholder="ค้นหาโปรเจกต์, ลูกค้า, เลขที่เอกสาร..."
+          placeholder={t('ค้นหาโปรเจกต์, ลูกค้า, เลขที่เอกสาร...')}
           style={{
             border: 'none',
             outline: 'none',
@@ -47,7 +49,7 @@ export default function Header() {
       {/* Theme toggle (normal ↔ glassmorphism) */}
       <div
         onClick={toggle}
-        title={glass ? 'โหมดปกติ' : 'โหมด Glassmorphism'}
+        title={glass ? t('โหมดปกติ') : t('โหมด Glassmorphism')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -70,7 +72,44 @@ export default function Header() {
         <span className="material-symbols-rounded" style={{ fontSize: 20, color: glass ? '#3d6e8e' : '#9aa7b2' }}>
           {glass ? 'blur_on' : 'blur_off'}
         </span>
-        {glass ? 'Glass' : 'ปกติ'}
+        {glass ? 'Glass' : (lang === 'en' ? 'Normal' : 'ปกติ')}
+      </div>
+
+      {/* Language toggle (TH / ENG) — top-right */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        height: 44,
+        borderRadius: 12,
+        overflow: 'hidden',
+        flexShrink: 0,
+        border: glass ? '1px solid rgba(255,255,255,0.7)' : '1px solid #e4e8ec',
+        background: glass ? 'rgba(255,255,255,0.55)' : '#ffffff',
+        WebkitBackdropFilter: glass ? 'blur(12px)' : undefined,
+        backdropFilter: glass ? 'blur(12px)' : undefined,
+      }}>
+        {(['th', 'en'] as const).map(l => {
+          const active = lang === l
+          return (
+            <div
+              key={l}
+              onClick={() => setLang(l)}
+              style={{
+                padding: '0 13px',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: active ? '#5f7d99' : 'transparent',
+                color: active ? '#ffffff' : (glass ? '#3d6e8e' : '#8a97a2'),
+              }}
+            >
+              {l === 'th' ? 'TH' : 'ENG'}
+            </div>
+          )
+        })}
       </div>
 
       {/* Notification Bell */}
@@ -125,7 +164,7 @@ export default function Header() {
           flexShrink: 0,
         }}>
           <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
-          สร้างใหม่
+          {t('สร้างใหม่')}
         </div>
       </Link>
     </header>

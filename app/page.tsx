@@ -6,6 +6,7 @@ import DashboardCharts from './DashboardCharts'
 import DateRangeFilter, { type RangeState } from '@/components/DateRangeFilter'
 import { resolveRange } from '@/lib/dateRanges'
 import { useTheme } from '@/components/ThemeContext'
+import { useI18n, type Lang } from '@/components/I18nContext'
 
 const STORAGE_KEY = 'mewyou_dash_range'
 
@@ -53,15 +54,22 @@ function getWeekDays(today: Date) {
   })
 }
 
-function relativeTime(from: Date, now: Date): string {
+function relativeTime(from: Date, now: Date, lang: Lang = 'th'): string {
   const diffMs = now.getTime() - from.getTime()
   const mins = Math.floor(diffMs / 60000)
-  if (mins < 1) return 'เมื่อสักครู่'
-  if (mins < 60) return `${mins} นาทีที่แล้ว`
+  const en = lang === 'en'
+  if (mins < 1) return en ? 'just now' : 'เมื่อสักครู่'
+  if (mins < 60) return en ? `${mins} min ago` : `${mins} นาทีที่แล้ว`
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours} ชั่วโมงที่แล้ว`
+  if (hours < 24) return en ? `${hours} hr ago` : `${hours} ชั่วโมงที่แล้ว`
   const days = Math.floor(hours / 24)
-  return `${days} วันก่อน`
+  return en ? `${days} day${days > 1 ? 's' : ''} ago` : `${days} วันก่อน`
+}
+
+function getEnglishDate(date: Date): string {
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
 }
 
 interface Kpi { value: number; up: boolean; pct: string }
@@ -87,8 +95,9 @@ const emptyState = (icon: string, text: string) => (
 )
 
 export default function DashboardPage() {
+  const { t, lang } = useI18n()
   const today = new Date()
-  const todayStr = getThaiBuddhistDate(today)
+  const todayStr = lang === 'en' ? getEnglishDate(today) : getThaiBuddhistDate(today)
   const weekDays = getWeekDays(today)
 
   const [range, setRange] = useState<RangeState>({ preset: 'this_month' })
@@ -133,9 +142,9 @@ export default function DashboardPage() {
       {/* Greeting + Date Range Filter */}
       <div style={{ margin: '14px 0 22px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45' }}>สวัสดี, Mew 👋</div>
+          <div style={{ fontSize: 25, fontWeight: 700, color: '#2f3b45' }}>{t('สวัสดี')}, Mew 👋</div>
           <div style={{ fontSize: 14.5, color: '#7a8893', marginTop: 3 }}>
-            ยินดีต้อนรับเข้าสู่ระบบ Mewyou Design OS · {todayStr}
+            {t('ยินดีต้อนรับเข้าสู่ระบบ Mewyou Design OS')} · {todayStr}
           </div>
         </div>
         <DateRangeFilter value={range} onChange={setRange} />
@@ -144,7 +153,7 @@ export default function DashboardPage() {
       {!data ? (
         <div style={{ ...card, padding: 60, textAlign: 'center', color: '#9aa7b2', fontSize: 14 }}>
           <span className="material-symbols-rounded" style={{ fontSize: 38, display: 'block', marginBottom: 10, color: '#cdd6df' }}>hourglass_top</span>
-          กำลังโหลดข้อมูล...
+          {t('กำลังโหลดข้อมูล...')}
         </div>
       ) : (
         <DashboardBody data={data} rangeLabel={rangeLabel} weekDays={weekDays} todayStr={todayStr} now={today} />
@@ -161,6 +170,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
   now: Date
 }) {
   const { theme } = useTheme()
+  const { t, lang } = useI18n()
   const glass = theme === 'glass'
   const k = data.kpis
   const kpis = [
@@ -172,11 +182,11 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
   ]
 
   const donutData = [
-    { label: 'ออกแบบ',    value: data.donut.design,    color: '#2f3b45' },
-    { label: 'ผลิต',      value: data.donut.deliver,   color: '#5f7d99' },
-    { label: 'รออนุมัติ', value: data.donut.revision,  color: '#3d8a64' },
-    { label: 'รอผลิต',    value: data.donut.approved,  color: '#b0bdc8' },
-    { label: 'เสร็จสิ้น', value: data.donut.completed, color: '#c4a882' },
+    { label: t('ออกแบบ'),    value: data.donut.design,    color: '#2f3b45' },
+    { label: t('ผลิต'),      value: data.donut.deliver,   color: '#5f7d99' },
+    { label: t('รออนุมัติ'), value: data.donut.revision,  color: '#3d8a64' },
+    { label: t('รอผลิต'),    value: data.donut.approved,  color: '#b0bdc8' },
+    { label: t('เสร็จสิ้น'), value: data.donut.completed, color: '#c4a882' },
   ]
 
   return (
@@ -187,16 +197,16 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           <div key={kp.label} className="glass-card" style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
               <span className="material-symbols-rounded" style={{ fontSize: 26, color: glass ? '#ffffff' : '#9fb0bf' }}>{kp.icon}</span>
-              {kp.label}
+              {t(kp.label)}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
               <span style={{ fontSize: 29, fontWeight: 700, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{kp.value}</span>
-              {kp.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{kp.unit}</span>}
+              {kp.unit && <span style={{ fontSize: 12.5, color: '#8a97a2' }}>{t(kp.unit)}</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12.5, color: kp.up ? '#3d8a64' : '#c4593f', marginTop: 6 }}>
               <span className="material-symbols-rounded" style={{ fontSize: 15 }}>{kp.up ? 'trending_up' : 'trending_down'}</span>
               {kp.trend}
-              <span style={{ color: '#9aa7b2', marginLeft: 2 }}>จากช่วงก่อนหน้า</span>
+              <span style={{ color: '#9aa7b2', marginLeft: 2 }}>{t('จากช่วงก่อนหน้า')}</span>
             </div>
           </div>
         ))}
@@ -210,7 +220,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {/* Donut */}
             <div className="glass-card" style={{ ...card, flex: '1 1 260px', padding: 22 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', marginBottom: 6 }}>ภาพรวมโปรเจกต์</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45', marginBottom: 6 }}>{t('ภาพรวมโปรเจกต์')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
                 <DashboardCharts donutData={donutData} salesData={data.salesChart.data} salesMonths={data.salesChart.labels} mode="donut" />
               </div>
@@ -219,10 +229,10 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
             <div className="glass-card" style={{ ...card, flex: '1 1 320px', padding: 22 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>
-                  ยอดขาย <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span>
+                  {t('ยอดขาย')} <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#5b6b77', border: '1px solid #e4e8ec', borderRadius: 9, padding: '5px 10px' }}>
-                  บาท
+                  {t('บาท')}
                   <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#9aa7b2' }}>expand_more</span>
                 </div>
               </div>
@@ -233,21 +243,21 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           {/* Recent Projects Table */}
           <div className="glass-card" style={{ ...card, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>โปรเจกต์ล่าสุด <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span></div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>{t('โปรเจกต์ล่าสุด')} <span style={{ fontSize: 13, color: '#9aa7b2', fontWeight: 400 }}>({rangeLabel})</span></div>
               <Link href="/projects" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13.5, color: '#4f7bb0', fontWeight: 500, textDecoration: 'none' }}>
-                ดูทั้งหมด
+                {t('ดูทั้งหมด')}
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 11px', borderBottom: '1px solid #f0f2f5' }}>
               {['Logo', 'รหัสโปรเจกต์', 'ชื่อลูกค้า', 'ประเภท', 'สถานะ', 'ความคืบหน้า', 'กำหนดส่ง', 'มูลค่า'].map(h => (
-                <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h}</div>
+                <div key={h} style={h === 'มูลค่า' ? { textAlign: 'right' } : {}}>{h === 'Logo' ? h : t(h)}</div>
               ))}
             </div>
             {data.recentProjects.length === 0 ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#9aa7b2', fontSize: 13.5 }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 36, display: 'block', marginBottom: 8, color: '#cdd6df' }}>folder_open</span>
-                ไม่มีโปรเจกต์ในช่วงวันที่นี้
+                {t('ไม่มีโปรเจกต์ในช่วงวันที่นี้')}
               </div>
             ) : data.recentProjects.map(p => {
               const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
@@ -266,7 +276,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
                     <div style={{ color: '#7a8893', fontSize: 13 }}>{p.type}</div>
                     <div>
                       <span style={{ display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 9px', borderRadius: 7, fontSize: 11.5, fontWeight: 600, background: s.bg, color: s.color }}>
-                        {s.label}
+                        {t(s.label)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -291,16 +301,16 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
                   <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c4593f' }}>priority_high</span>
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>สิ่งที่ต้องทำก่อน · 5 อันดับด่วนสุด</div>
-                  <div style={{ fontSize: 12.5, color: '#9aa7b2' }}>คำนวณจากเงินที่กำลังรั่ว × ความเร่งด่วน</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: '#2f3b45' }}>{t('สิ่งที่ต้องทำก่อน · 5 อันดับด่วนสุด')}</div>
+                  <div style={{ fontSize: 12.5, color: '#9aa7b2' }}>{t('คำนวณจากเงินที่กำลังรั่ว × ความเร่งด่วน')}</div>
                 </div>
               </div>
               <Link href="/leaks" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#c4593f', fontWeight: 600, textDecoration: 'none' }}>
-                ดูทั้งหมด ({data.leaks.length})
+                {t('ดูทั้งหมด')} ({data.leaks.length})
                 <span className="material-symbols-rounded" style={{ fontSize: 17 }}>chevron_right</span>
               </Link>
             </div>
-            {data.leaks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+            {data.leaks.length === 0 ? emptyState('task_alt', t('ไม่มีงานเร่งด่วน')) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {data.leaks.map((p, i) => (
                   <Link href="/leaks" key={i} style={{ textDecoration: 'none' }}>
@@ -338,14 +348,14 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#6760a8' }}>article</span>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>ใบกำกับภาษีรอส่ง</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#2f3b45' }}>{t('ใบกำกับภาษีรอส่ง')}</div>
               </div>
-              <Link href="/documents" style={{ fontSize: 12.5, color: '#6760a8', fontWeight: 600, textDecoration: 'none' }}>ดูทั้งหมด</Link>
+              <Link href="/documents" style={{ fontSize: 12.5, color: '#6760a8', fontWeight: 600, textDecoration: 'none' }}>{t('ดูทั้งหมด')}</Link>
             </div>
             <div style={{ fontSize: 12, color: '#8a7fb5', marginBottom: 14 }}>
-              ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า · รวม ฿{data.pendingSend.total.toLocaleString('th-TH')}
+              {t('ออกแล้วแต่ยังไม่ได้ส่งให้ลูกค้า · รวม')} ฿{data.pendingSend.total.toLocaleString('th-TH')}
             </div>
-            {data.pendingSend.docs.length === 0 ? emptyState('article', 'ไม่มีเอกสารรอส่ง') : (
+            {data.pendingSend.docs.length === 0 ? emptyState('article', t('ไม่มีเอกสารรอส่ง')) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {data.pendingSend.docs.map(doc => (
                   <div key={doc.no} style={{ display: 'flex', alignItems: 'center', gap: 11, background: '#fff', borderRadius: 11, padding: '11px 13px', cursor: 'pointer' }}>
@@ -366,7 +376,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           {/* Mini Calendar */}
           <div className="glass-card" style={{ ...card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ปฏิทินงานวันนี้</div>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>{t('ปฏิทินงานวันนี้')}</div>
               <span className="material-symbols-rounded" style={{ fontSize: 20, color: '#9aa7b2' }}>expand_more</span>
             </div>
             <div style={{ fontSize: 12.5, color: '#8a97a2', marginBottom: 14 }}>{todayStr}</div>
@@ -386,7 +396,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
                 </div>
               ))}
             </div>
-            {data.schedule.length === 0 ? emptyState('event_busy', 'ไม่มีนัดหมายวันนี้') : (
+            {data.schedule.length === 0 ? emptyState('event_busy', t('ไม่มีนัดหมายวันนี้')) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {data.schedule.map((ev, i) => (
                   <div key={i} style={{ display: 'flex', gap: 11 }}>
@@ -402,14 +412,14 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
 
           {/* Tasks */}
           <div className="glass-card" style={{ ...card, padding: 20 }}>
-            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>ภารกิจที่ต้องทำ</div>
-            {data.tasks.length === 0 ? emptyState('task_alt', 'ไม่มีงานเร่งด่วน') : (
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 14 }}>{t('ภารกิจที่ต้องทำ')}</div>
+            {data.tasks.length === 0 ? emptyState('task_alt', t('ไม่มีงานเร่งด่วน')) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
                 {data.tasks.map((t, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                     <span className="material-symbols-rounded" style={{ fontSize: 21, color: '#c3cdd6' }}>check_box_outline_blank</span>
                     <span style={{ flex: 1, fontSize: 13.5, color: '#5b6b77' }}>{t.label}</span>
-                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>{`${t.count} รายการ`}</span>
+                    <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, background: t.countBg, color: t.countColor }}>{`${t.count} ${lang === 'en' ? 'items' : 'รายการ'}`}</span>
                   </div>
                 ))}
               </div>
@@ -419,10 +429,10 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           {/* Activity Feed */}
           <div className="glass-card" style={{ ...card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>กิจกรรมล่าสุด</div>
-              <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>ดูทั้งหมด</div>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>{t('กิจกรรมล่าสุด')}</div>
+              <div style={{ fontSize: 12.5, color: '#4f7bb0', fontWeight: 500, cursor: 'pointer' }}>{t('ดูทั้งหมด')}</div>
             </div>
-            {data.activities.length === 0 ? emptyState('history', 'ยังไม่มีกิจกรรม') : (
+            {data.activities.length === 0 ? emptyState('history', t('ยังไม่มีกิจกรรม')) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
                 {data.activities.map((a, i) => (
                   <div key={i} style={{ display: 'flex', gap: 11 }}>
@@ -431,7 +441,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: '#3b4954', lineHeight: 1.4 }}>{a.title}</div>
-                      <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{relativeTime(new Date(a.ts), now)}</div>
+                      <div style={{ fontSize: 11.5, color: '#9aa7b2', marginTop: 2 }}>{relativeTime(new Date(a.ts), now, lang)}</div>
                     </div>
                   </div>
                 ))}
