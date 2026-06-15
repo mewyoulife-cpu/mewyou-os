@@ -133,7 +133,8 @@ function KanbanCard({ project, onOpen, onImageChange }: {
         </label>
       )}
       <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif", marginBottom: 4 }}>{project.code}</div>
-      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45' }}>{project.customer?.name || '—'}</div>
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
+      <div style={{ fontSize: 12.5, color: '#5b6b77', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.customer?.name || '—'}</div>
       <div style={{ fontSize: 12.5, color: '#7a8893', marginTop: 2 }}>{project.type}</div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 11, borderTop: '1px solid #f2f4f6' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#8a97a2' }}>
@@ -233,8 +234,9 @@ export default function ProjectsPage() {
         ) : view === 'list' ? (
           /* LIST VIEW */
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
               <div>รหัสโปรเจกต์</div>
+              <div>ชื่อโปรเจกต์</div>
               <div>ชื่อลูกค้า</div>
               <div>ประเภทงาน</div>
               <div>สถานะ</div>
@@ -254,12 +256,13 @@ export default function ProjectsPage() {
                 <div
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr 1.2fr 1fr 1.3fr 0.9fr 0.9fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#fafbfc')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{p.code}</div>
-                  <div style={{ fontWeight: 600, color: '#2f3b45' }}>{p.customer?.name || '—'}</div>
+                  <div style={{ fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                  <div style={{ color: '#5b6b77', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.customer?.name || '—'}</div>
                   <div style={{ color: '#7a8893', fontSize: 13 }}>{p.type}</div>
                   <div>
                     <span style={{ display: 'inline-flex', padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>
