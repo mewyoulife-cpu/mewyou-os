@@ -264,6 +264,17 @@ export default function ProjectsPage() {
   const activeCount = projects.filter(p => !['completed', 'lead'].includes(p.status)).length
   const hasFilter = statusFilter !== 'all' || typeFilter !== 'all' || search.trim() !== ''
 
+  async function deleteProject(id: string, name: string) {
+    if (!confirm(`ลบโปรเจกต์ "${name}" ?\nการลบนี้ย้อนกลับไม่ได้`)) return
+    try {
+      const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+      if (!res.ok) { alert('ลบไม่สำเร็จ กรุณาลองใหม่'); return }
+      setProjects(ps => ps.filter(p => p.id !== id))
+    } catch {
+      alert('เกิดข้อผิดพลาด กรุณาลองใหม่')
+    }
+  }
+
   return (
     <div style={{ color: '#2f3b45' }}>
       {/* Header */}
@@ -334,7 +345,7 @@ export default function ProjectsPage() {
         ) : view === 'list' ? (
           /* LIST VIEW */
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
               <div>รหัสโปรเจกต์</div>
               <div>ชื่อโปรเจกต์</div>
               <div>ชื่อลูกค้า</div>
@@ -343,6 +354,7 @@ export default function ProjectsPage() {
               <div>ความคืบหน้า</div>
               <div>กำหนดส่ง</div>
               <div style={{ textAlign: 'right' }}>มูลค่า</div>
+              <div />
             </div>
             {filtered.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#9aa7b2', padding: '48px 0' }}>
@@ -356,7 +368,7 @@ export default function ProjectsPage() {
                 <div
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#fafbfc')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -375,6 +387,16 @@ export default function ProjectsPage() {
                   </div>
                   <div style={{ color: '#7a8893', fontSize: 13 }}>{p.dueDate ? p.dueDate.slice(0, 10) : '—'}</div>
                   <div style={{ textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(p.value)}</div>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <span
+                      onClick={e => { e.stopPropagation(); deleteProject(p.id, p.name) }}
+                      title="ลบโปรเจกต์"
+                      className="material-symbols-rounded"
+                      style={{ fontSize: 19, color: '#c0ccd6', cursor: 'pointer', borderRadius: 6, padding: 2 }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#d9534f'; e.currentTarget.style.background = '#fceeec' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#c0ccd6'; e.currentTarget.style.background = 'transparent' }}
+                    >delete</span>
+                  </div>
                 </div>
               )
             })}
