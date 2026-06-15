@@ -73,6 +73,9 @@ function thaiToday() {
   return `${dd}/${mm}/${yy}`
 }
 
+// Buddhist-era year used in document numbers, e.g. QO-2569-0001 (matches the server).
+const BUDDHIST_YEAR = new Date().getFullYear() + 543
+
 const qInput: React.CSSProperties = {
   width: '100%', border: '1px solid #e4e8ec', borderRadius: 9, height: 38,
   padding: '0 12px', fontFamily: 'inherit', fontSize: 13.5, color: '#2f3b45',
@@ -96,7 +99,7 @@ export default function NewQuotationPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [banks, setBanks] = useState<BankView[]>([])
-  const [quoteNo, setQuoteNo] = useState('QO-25690600003')
+  const [quoteNo, setQuoteNo] = useState(`QO-${BUDDHIST_YEAR}-0001`)
   const [saving, setSaving] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
@@ -125,8 +128,16 @@ export default function NewQuotationPage() {
     fetch('/api/projects').then(r => r.json()).then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {})
     fetch('/api/quotations').then(r => r.json()).then(d => {
       const list = Array.isArray(d) ? d : []
-      const nums = list.map((q: { no?: string }) => parseInt(String(q.no || '').replace(/\D/g, ''), 10) || 0)
-      setQuoteNo('QO-' + (Math.max(25690600002, ...nums) + 1))
+      // Mirror the server's numbering (QO-<ปี พ.ศ.>-NNNN) so the previewed number
+      // matches the one actually saved.
+      const prefix = `QO-${BUDDHIST_YEAR}-`
+      const maxSeq = list.reduce((m: number, q: { no?: string }) => {
+        const no = String(q?.no || '')
+        if (!no.startsWith(prefix)) return m
+        const n = parseInt(no.split('-')[2] || '0', 10)
+        return Number.isFinite(n) && n > m ? n : m
+      }, 0)
+      setQuoteNo(`QO-${BUDDHIST_YEAR}-${String(maxSeq + 1).padStart(4, '0')}`)
     }).catch(() => {})
     fetch('/api/banks').then(r => r.json()).then(d => {
       const list: { bank: string; accountNo: string; name: string; isDefault?: boolean }[] = Array.isArray(d) ? d : []
