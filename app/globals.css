@@ -26,6 +26,7 @@
 .login-overlay {
   position: absolute;
   color: #ffffff;
+  font-family: 'Poppins', 'IBM Plex Sans Thai', sans-serif;
   text-shadow: 0 1px 14px rgba(60, 55, 50, 0.18);
   z-index: 2;
   pointer-events: none;
@@ -43,6 +44,7 @@
   max-width: calc(100vw - 40px);
   padding: 34px 32px 30px;
   border-radius: 26px;
+  font-family: 'Poppins', 'IBM Plex Sans Thai', sans-serif;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: 0 24px 70px rgba(70, 70, 80, 0.20);
