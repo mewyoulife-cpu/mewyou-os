@@ -86,7 +86,7 @@ function LoginForm() {
 
       {/* Live stat — left */}
       <div className="login-overlay login-stat-left">
-        <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'Poppins', sans-serif" }}>
           {stats ? stats.projectCount : '—'}
         </div>
         <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 1 }}>Projects</div>
@@ -94,7 +94,7 @@ function LoginForm() {
 
       {/* Live stat — right */}
       <div className="login-overlay login-stat-right">
-        <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <div style={{ fontSize: 52, fontWeight: 400, lineHeight: 1, fontFamily: "'Poppins', sans-serif" }}>
           {stats ? formatSales(stats.salesThisYear) : '—'}
         </div>
         <div style={{ fontSize: 17, fontWeight: 400, marginTop: 6, opacity: 1 }}>Sales this year</div>
@@ -106,7 +106,7 @@ function LoginForm() {
       {/* Glass card */}
       <form onSubmit={submit} className="login-glass">
         {/* Logo */}
-        <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: '#ffffff', marginBottom: 26 }}>
+        <div style={{ fontFamily: "'Poppins', sans-serif", lineHeight: 1.05, fontWeight: 500, fontSize: 19, color: '#ffffff', marginBottom: 26 }}>
           <div>mew.</div>
           <div style={{ marginLeft: 16 }}>you</div>
         </div>

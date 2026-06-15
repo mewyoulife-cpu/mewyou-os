@@ -15,6 +15,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: 'Poppins', 'IBM Plex Sans Thai', sans-serif;
   background-color: #d8d2cb; /* warm-grey fallback before the photo loads */
   background-image: url('/login-bg.jpg');
   background-size: cover;
