@@ -5,6 +5,7 @@ import Link from 'next/link'
 import DashboardCharts from './DashboardCharts'
 import DateRangeFilter, { type RangeState } from '@/components/DateRangeFilter'
 import { resolveRange } from '@/lib/dateRanges'
+import { useTheme } from '@/components/ThemeContext'
 
 const STORAGE_KEY = 'mewyou_dash_range'
 
@@ -159,6 +160,8 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
   todayStr: string
   now: Date
 }) {
+  const { theme } = useTheme()
+  const glass = theme === 'glass'
   const k = data.kpis
   const kpis = [
     { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(k.projects.value), unit: 'โปรเจกต์', up: k.projects.up, trend: k.projects.pct },
@@ -183,7 +186,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
         {kpis.map((kp) => (
           <div key={kp.label} className="glass-card" style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#9fb0bf' }}>{kp.icon}</span>
+              <span className="material-symbols-rounded" style={{ fontSize: 26, color: glass ? '#ffffff' : '#9fb0bf' }}>{kp.icon}</span>
               {kp.label}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
