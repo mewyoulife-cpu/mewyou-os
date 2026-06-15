@@ -62,10 +62,14 @@
 
 /* ===== Glassmorphism theme (toggled from the header) ===== */
 .app-glass {
-  background:
-    linear-gradient(rgba(247, 245, 242, 0.34), rgba(247, 245, 242, 0.34)),
-    url('/login-bg.jpg') center / cover no-repeat,
-    #e9e6e1 !important;
+  background-color: #e9e6e1 !important;
+  background-image:
+    linear-gradient(rgba(247, 245, 242, 0.30), rgba(247, 245, 242, 0.30)),
+    url('/login-bg.jpg') !important;
+  background-size: cover, cover !important;
+  background-position: center, center !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-attachment: fixed, fixed !important;
 }
 /* Let the photo show through the header bar */
 .app-glass header { background: transparent !important; }
