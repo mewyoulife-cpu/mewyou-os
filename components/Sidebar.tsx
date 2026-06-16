@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { key: 'settings', icon: 'settings', label: 'Settings', href: '/settings' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false }: { mobileOpen?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const { theme } = useTheme()
@@ -56,7 +56,7 @@ export default function Sidebar() {
   const nameColor = glass ? '#2f3b45' : '#ffffff'
 
   return (
-    <aside style={{
+    <aside className={`app-sidebar${mobileOpen ? ' app-sidebar-open' : ''}`} style={{
       width: 248,
       flexShrink: 0,
       background: '#6c8298',

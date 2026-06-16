@@ -213,7 +213,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
       </div>
 
       {/* Main 2-col layout */}
-      <div style={{ display: 'flex', gap: 18 }}>
+      <div className="dash-main" style={{ display: 'flex', gap: 18 }}>
         {/* LEFT column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Charts row */}
@@ -342,7 +342,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
         </div>
 
         {/* RIGHT column */}
-        <div style={{ width: 312, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div className="dash-side" style={{ width: 312, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* Tax invoices */}
           <div style={{ background: 'linear-gradient(135deg,#ecebf8,#f5f4fc)', borderRadius: 18, padding: 20, border: '1px solid #e3e1f3' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>

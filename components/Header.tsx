@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useTheme } from './ThemeContext'
 import { useI18n } from './I18nContext'
 
-export default function Header() {
+export default function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, toggle } = useTheme()
   const { lang, setLang, t } = useI18n()
   const glass = theme === 'glass'
@@ -14,12 +14,25 @@ export default function Header() {
       flexShrink: 0,
       display: 'flex',
       alignItems: 'center',
-      gap: 18,
-      padding: '0 28px',
+      gap: 14,
+      padding: '0 18px',
       background: '#eef1f4',
     }}>
+      {/* Hamburger (mobile only) */}
+      <div
+        onClick={onMenuClick}
+        className="app-hamburger"
+        style={{
+          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+          alignItems: 'center', justifyContent: 'center',
+          background: '#ffffff', border: '1px solid #e4e8ec', cursor: 'pointer',
+        }}
+      >
+        <span className="material-symbols-rounded" style={{ fontSize: 24, color: '#5b6b77' }}>menu</span>
+      </div>
+
       {/* Search */}
-      <div style={{
+      <div className="header-search" style={{
         flex: 1,
         maxWidth: 540,
         display: 'flex',
@@ -45,6 +58,8 @@ export default function Header() {
           }}
         />
       </div>
+
+      <div style={{ flex: 1 }} />
 
       {/* Theme toggle (normal ↔ glassmorphism) */}
       <div
@@ -72,7 +87,7 @@ export default function Header() {
         <span className="material-symbols-rounded" style={{ fontSize: 20, color: glass ? '#3d6e8e' : '#9aa7b2' }}>
           {glass ? 'blur_on' : 'blur_off'}
         </span>
-        {glass ? 'Glass' : (lang === 'en' ? 'Normal' : 'ปกติ')}
+        <span className="hide-mobile">{glass ? 'Glass' : (lang === 'en' ? 'Normal' : 'ปกติ')}</span>
       </div>
 
       {/* Language toggle (TH / ENG) — top-right */}
@@ -164,7 +179,7 @@ export default function Header() {
           flexShrink: 0,
         }}>
           <span className="material-symbols-rounded" style={{ fontSize: 20 }}>add</span>
-          {t('สร้างใหม่')}
+          <span className="hide-mobile">{t('สร้างใหม่')}</span>
         </div>
       </Link>
     </header>
