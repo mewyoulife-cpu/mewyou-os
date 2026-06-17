@@ -345,7 +345,8 @@ export default function ProjectsPage() {
         ) : view === 'list' ? (
           /* LIST VIEW */
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
+              <div>#</div>
               <div>รหัสโปรเจกต์</div>
               <div>ชื่อโปรเจกต์</div>
               <div>ชื่อลูกค้า</div>
@@ -361,17 +362,18 @@ export default function ProjectsPage() {
                 <span className="material-symbols-rounded" style={{ fontSize: 40, display: 'block', marginBottom: 8 }}>folder_open</span>
                 {hasFilter ? 'ไม่พบโปรเจกต์ที่ตรงกับตัวกรอง' : 'ยังไม่มีโปรเจกต์'}
               </div>
-            ) : filtered.map(p => {
+            ) : filtered.map((p, i) => {
               const pct = STATUS_PROGRESS[p.status] || 0
               const s = STATUS_MAP[p.status] || { label: p.status, bg: '#f0f2f5', color: '#8a97a2' }
               return (
                 <div
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#fafbfc')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
+                  <div style={{ color: '#9aa7b2', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{i + 1}</div>
                   <div style={{ fontWeight: 600, color: '#54697d', fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 12.5 }}>{p.code}</div>
                   <div style={{ fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                   <div style={{ color: '#5b6b77', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.customer?.name || '—'}</div>
