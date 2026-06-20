@@ -402,6 +402,12 @@ export default function ProjectsPage() {
                 </div>
               )
             })}
+            {filtered.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '16px 4px 2px', borderTop: '2px solid #eef1f4' }}>
+                <div style={{ gridColumn: '1 / 9', color: '#7a8893', fontWeight: 600 }}>รวมทั้งหมด ({filtered.length} โปรเจกต์)</div>
+                <div style={{ gridColumn: '9 / 10', textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(filtered.reduce((sum, p) => sum + (p.value || 0), 0))}</div>
+              </div>
+            )}
           </>
         ) : (
           /* KANBAN VIEW */
