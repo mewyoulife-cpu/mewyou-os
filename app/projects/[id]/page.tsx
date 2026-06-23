@@ -12,12 +12,13 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   design: { label: 'Design', bg: '#e8eef4', color: '#5f7d99' },
   revision: { label: 'Revision', bg: '#fceee8', color: '#e07b54' },
   approved: { label: 'Approved', bg: '#e9f3ed', color: '#3d8a64' },
+  billing: { label: 'Billing', bg: '#fdeede', color: '#e08a2b' },
   deliver: { label: 'Deliver', bg: '#e3f2fd', color: '#2196f3' },
   completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50' },
 }
 
-const STATUSES = ['lead', 'brief', 'quotation', 'payment', 'design', 'revision', 'approved', 'deliver', 'completed']
-const LABELS = ['Lead', 'Brief', 'Quotation', 'Payment', 'Design', 'Revision', 'Approved', 'Deliver', 'Completed']
+const STATUSES = ['lead', 'brief', 'quotation', 'payment', 'design', 'revision', 'approved', 'billing', 'deliver', 'completed']
+const LABELS = ['Lead', 'Brief', 'Quotation', 'Payment', 'Design', 'Revision', 'Approved', 'Billing', 'Deliver', 'Completed']
 const THAI_LABELS = [
   'รับงาน / เปิดโปรเจกต์',
   'รับ Brief จากลูกค้า',
@@ -26,6 +27,7 @@ const THAI_LABELS = [
   'ออกแบบงาน',
   'ส่ง Revision ให้ลูกค้า',
   'ลูกค้าอนุมัติงาน',
+  'รอเรียกเก็บเงิน',
   'ส่งมอบงานให้ลูกค้า',
   'ปิดโปรเจกต์',
 ]

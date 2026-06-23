@@ -12,13 +12,14 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   design:    { label: 'Design',    bg: '#e8eef4', color: '#5f7d99' },
   revision:  { label: 'Revision',  bg: '#fceee8', color: '#e07b54' },
   approved:  { label: 'Approved',  bg: '#e9f3ed', color: '#3d8a64' },
+  billing:   { label: 'Billing',   bg: '#fdeede', color: '#e08a2b' },
   deliver:   { label: 'Deliver',   bg: '#e3f2fd', color: '#2196f3' },
   completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50' },
 }
 
 const STATUS_PROGRESS: Record<string, number> = {
   lead: 5, brief: 15, quotation: 25, payment: 35,
-  design: 55, revision: 70, approved: 82, deliver: 92, completed: 100,
+  design: 55, revision: 70, approved: 82, billing: 87, deliver: 92, completed: 100,
 }
 
 const KANBAN_COLUMNS = [
@@ -26,7 +27,7 @@ const KANBAN_COLUMNS = [
   { key: 'design',    label: 'ออกแบบ',   statuses: ['design'] },
   { key: 'revision',  label: 'รออนุมัติ', statuses: ['revision'] },
   { key: 'payment',   label: 'ชำระเงิน', statuses: ['payment'] },
-  { key: 'deliver',   label: 'รอส่งมอบ', statuses: ['deliver', 'approved'] },
+  { key: 'deliver',   label: 'รอส่งมอบ', statuses: ['deliver', 'approved', 'billing'] },
   { key: 'completed', label: 'เสร็จสิ้น', statuses: ['completed'] },
 ]
 

@@ -6,6 +6,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   design: { label: 'Design', bg: '#e8eef4', color: '#5f7d99' },
   revision: { label: 'Revision', bg: '#fceee8', color: '#e07b54' },
   approved: { label: 'Approved', bg: '#e9f3ed', color: '#3d8a64' },
+  billing: { label: 'Billing', bg: '#fdeede', color: '#e08a2b' },
   deliver: { label: 'Deliver', bg: '#e3f2fd', color: '#2196f3' },
   completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50' },
   draft: { label: 'ร่าง', bg: '#f0f2f5', color: '#8a97a2' },

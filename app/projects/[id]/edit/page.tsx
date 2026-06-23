@@ -12,8 +12,9 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num
   design:    { label: 'Design',    bg: '#e8eef4', color: '#5f7d99', num: 5 },
   revision:  { label: 'Revision',  bg: '#fceee8', color: '#e07b54', num: 6 },
   approved:  { label: 'Approved',  bg: '#e9f3ed', color: '#3d8a64', num: 7 },
-  deliver:   { label: 'Deliver',   bg: '#e3f2fd', color: '#2196f3', num: 8 },
-  completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50', num: 9 },
+  billing:   { label: 'Billing',   bg: '#fdeede', color: '#e08a2b', num: 8 },
+  deliver:   { label: 'Deliver',   bg: '#e3f2fd', color: '#2196f3', num: 9 },
+  completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50', num: 10 },
 }
 
 const JOB_TYPES = ['Label Design', 'Packaging', 'Logo/CI', 'Illustration', 'Motion Design', 'Publication', 'Brand Identity', 'อื่นๆ']
