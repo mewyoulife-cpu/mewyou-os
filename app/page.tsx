@@ -179,8 +179,8 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
     { icon: 'task_alt', label: 'งานเสร็จสิ้นแล้ว', value: String(k.completed.value), unit: 'โปรเจกต์', up: k.completed.up, trend: k.completed.pct },
     { icon: 'payments', label: 'ยอดขายรวม', value: k.sales.value > 0 ? fmtShort(k.sales.value) : '฿0', unit: '', up: k.sales.up, trend: k.sales.pct },
     { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: k.outstanding.value > 0 ? fmtShort(k.outstanding.value) : '฿0', unit: '', up: k.outstanding.up, trend: k.outstanding.pct },
-    { icon: 'savings', label: 'กำไรแพคเกจจิ้งจีน', value: fmtShort(k.chinaProfit.value), unit: '', up: k.chinaProfit.up, trend: k.chinaProfit.pct },
-    { icon: 'savings', label: 'กำไรแพคเกจจิ้งไทย', value: fmtShort(k.thaiProfit.value), unit: '', up: k.thaiProfit.up, trend: k.thaiProfit.pct },
+    { icon: 'savings', label: '🇨🇳 กำไรแพคเกจจิ้งจีน', value: fmtShort(k.chinaProfit.value), unit: '', up: k.chinaProfit.up, trend: k.chinaProfit.pct },
+    { icon: 'savings', label: '🇹🇭 กำไรแพคเกจจิ้งไทย', value: fmtShort(k.thaiProfit.value), unit: '', up: k.thaiProfit.up, trend: k.thaiProfit.pct },
   ]
 
   const donutData = [
