@@ -69,6 +69,7 @@ export default function QuotationDetailPage() {
   const [exporting, setExporting] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [banks, setBanks] = useState<BankView[]>([])
   const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
   const docRef = useRef<HTMLDivElement>(null)
@@ -146,6 +147,18 @@ export default function QuotationDetailPage() {
     setTimeout(() => setExporting(false), 1000)
   }
 
+  async function copyShareLink() {
+    const url = `${window.location.origin}/share/quotation/${id}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      window.prompt('คัดลอกลิงก์นี้เพื่อส่งให้ลูกค้า:', url)
+      return
+    }
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: '#9aa7b2', gap: 10 }}>
@@ -218,7 +231,19 @@ export default function QuotationDetailPage() {
             borderRadius: 8, padding: '4px 12px', fontSize: 12.5, fontWeight: 600,
           }}>{st.label}</span>
         </div>
-        <div style={{ display: 'flex', gap: 9 }}>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          <button
+            onClick={copyShareLink}
+            title="คัดลอกลิงก์สำหรับส่งให้ลูกค้า"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, height: 40, padding: '0 16px',
+              border: `1px solid ${linkCopied ? '#3d8a64' : '#e4e8ec'}`, borderRadius: 10, fontSize: 13.5,
+              color: linkCopied ? '#3d8a64' : '#5b6b77', fontWeight: 500, cursor: 'pointer', background: '#fff',
+            }}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: 18 }}>{linkCopied ? 'check' : 'link'}</span>
+            {linkCopied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
+          </button>
           <button
             onClick={handleExportPdf}
             disabled={exporting}

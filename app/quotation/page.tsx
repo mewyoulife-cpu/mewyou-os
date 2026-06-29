@@ -60,6 +60,7 @@ export default function QuotationListPage() {
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [banks, setBanks] = useState<BankView[]>([])
   const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
 
@@ -92,6 +93,17 @@ export default function QuotationListPage() {
   function closePreview() {
     setPreviewId(null)
     setPreviewData(null)
+  }
+
+  async function copyShareLink(qid: string) {
+    const url = `${window.location.origin}/share/quotation/${qid}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      window.prompt('คัดลอกลิงก์นี้เพื่อส่งให้ลูกค้า:', url)
+    }
   }
 
   const counts = {
@@ -340,6 +352,13 @@ export default function QuotationListPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 18px', borderBottom: '1px solid #eef1f4' }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: '#2f3b45' }}>พรีวิวใบเสนอราคา</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => previewId && copyShareLink(previewId)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 36, padding: '0 13px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${linkCopied ? '#3d8a64' : '#e4e8ec'}`, background: '#fff', color: linkCopied ? '#3d8a64' : '#5f7d99', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>{linkCopied ? 'check' : 'link'}</span>
+                  {linkCopied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
+                </button>
                 <button
                   onClick={() => router.push(`/quotation/${previewId}`)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 36, padding: '0 13px', borderRadius: 9, cursor: 'pointer', border: '1px solid #e4e8ec', background: '#fff', color: '#5f7d99', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}

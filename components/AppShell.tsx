@@ -9,7 +9,9 @@ import { ThemeProvider, useTheme } from '@/components/ThemeContext'
 import { I18nProvider } from '@/components/I18nContext'
 
 // Routes that render without the app chrome (sidebar / header).
+// Public customer-facing share pages live under /share.
 const BARE_ROUTES = ['/login']
+const BARE_PREFIXES = ['/share']
 
 function Chrome({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme()
@@ -44,7 +46,7 @@ function Chrome({ children }: { children: React.ReactNode }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  if (BARE_ROUTES.includes(pathname)) {
+  if (BARE_ROUTES.includes(pathname) || BARE_PREFIXES.some(p => pathname.startsWith(p))) {
     return <>{children}</>
   }
 
