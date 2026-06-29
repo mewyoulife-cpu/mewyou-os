@@ -8,6 +8,12 @@ import TermsEditor from '@/components/TermsEditor'
 import { printDocNode } from '@/lib/printDoc'
 import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
+interface Project {
+  id: string
+  code: string
+  name: string
+}
+
 interface Customer {
   id: string
   name: string
@@ -87,6 +93,7 @@ export default function EditQuotationPage() {
   const id = params?.id as string
 
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,6 +103,7 @@ export default function EditQuotationPage() {
 
   const [no, setNo] = useState('')
   const [customerId, setCustomerId] = useState('')
+  const [projectId, setProjectId] = useState('')
   const [status, setStatus] = useState('draft')
   const [issueDate, setIssueDate] = useState('')
   const [expiry, setExpiry] = useState('')
@@ -115,6 +123,7 @@ export default function EditQuotationPage() {
 
   useEffect(() => {
     fetch('/api/customers').then(r => r.json()).then(d => setCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/projects').then(r => r.json()).then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {})
     fetch('/api/banks').then(r => r.json()).then(d => {
       const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
       if (!list.length) return
@@ -130,6 +139,7 @@ export default function EditQuotationPage() {
       .then(q => {
         setNo(q.no || '')
         setCustomerId(q.customerId || '')
+        setProjectId(q.projectId || '')
         setStatus(q.status || 'draft')
         setIssueDate(q.issueDate || '')
         setExpiry(q.expiry || '')
@@ -192,6 +202,7 @@ export default function EditQuotationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: customerId || null,
+          projectId: projectId || null,
           status,
           issueDate,
           expiry: expiry || null,
@@ -307,6 +318,15 @@ export default function EditQuotationPage() {
                 <label style={labelStyle}>วันหมดอายุ</label>
                 <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} style={inputStyle} />
               </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label style={labelStyle}>โปรเจกต์ที่เกี่ยวข้อง</label>
+              <select value={projectId} onChange={e => setProjectId(e.target.value)} style={inputStyle}>
+                <option value="">— ไม่ลิงก์โปรเจกต์ —</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.code} · {p.name}</option>
+                ))}
+              </select>
             </div>
           </div>
 

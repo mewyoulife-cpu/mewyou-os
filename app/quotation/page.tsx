@@ -18,6 +18,7 @@ interface Quotation {
   discount?: number
   vatEnabled?: boolean
   customer?: { name?: string; company?: string } | null
+  project?: { id: string; code: string; name: string } | null
 }
 
 const statusMap: Record<string, { label: string; bg: string; color: string }> = {
@@ -281,8 +282,8 @@ export default function QuotationListPage() {
                 <div style={{ fontWeight: 600, color: '#2f3b45', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {custName(q)}
                 </div>
-                <div style={{ color: '#7a8893', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  —
+                <div style={{ color: '#7a8893', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={q.project ? `${q.project.code} · ${q.project.name}` : ''}>
+                  {q.project ? `${q.project.code} · ${q.project.name}` : '—'}
                 </div>
                 <div style={{ color: '#7a8893', fontSize: 13 }}>
                   {q.issueDate || '—'}

@@ -5,7 +5,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const { id } = await params
   const q = await prisma.quotation.findUnique({
     where: { id },
-    include: { customer: true, documents: true }
+    include: { customer: true, documents: true, project: { select: { id: true, code: true, name: true } } }
   })
   if (!q) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(q)

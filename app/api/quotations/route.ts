@@ -4,7 +4,7 @@ import { nextDocSeq } from '@/lib/docNumber'
 
 export async function GET() {
   const quotations = await prisma.quotation.findMany({
-    include: { customer: true },
+    include: { customer: true, project: { select: { id: true, code: true, name: true } } },
     orderBy: { createdAt: 'desc' }
   })
   return NextResponse.json(quotations)
@@ -12,7 +12,7 @@ export async function GET() {
 
 // Whitelisted columns so unknown keys / empty foreign keys can't break the insert.
 const STRING_FIELDS = [
-  'status', 'customerId', 'issueDate', 'expiry', 'paymentTerm',
+  'status', 'customerId', 'projectId', 'issueDate', 'expiry', 'paymentTerm',
   'clientName', 'clientAddress', 'clientTaxId', 'clientContact', 'clientPhone', 'notes', 'terms',
 ] as const
 

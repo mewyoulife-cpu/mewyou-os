@@ -207,6 +207,7 @@ export default function NewQuotationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: form.customerId || null,
+          projectId: form.projectId || null,
           status,
           issueDate: form.issueDate,
           expiry: form.expiry && form.expiry !== '-' ? form.expiry : null,

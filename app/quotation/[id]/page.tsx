@@ -33,6 +33,7 @@ interface Quotation {
   bankIndex: number
   notes?: string
   terms?: string
+  projectId?: string | null
   projectName?: string
   ownerName?: string
   customer?: { name: string; company?: string; email?: string }
@@ -99,6 +100,7 @@ export default function QuotationDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: quotation.status,
+          projectId: quotation.projectId ?? null,
           issueDate: quotation.issueDate,
           expiry: quotation.expiry ?? null,
           items: quotation.items,
