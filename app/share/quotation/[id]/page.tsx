@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import QuotationDoc, { bankBrand, DEFAULT_TERMS, type BankView } from '@/components/QuotationDoc'
-import { companyFromSettings, type CompanyInfo } from '@/lib/company'
+import type { CompanyInfo } from '@/lib/company'
 import { printDocNode } from '@/lib/printDoc'
 
 interface Item { name: string; detail?: string; qty: number; unit: string; price: number }
@@ -19,16 +19,17 @@ export default function SharedQuotationPage() {
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/quotations/${id}`)
+    fetch(`/api/public/share/quotation/${id}`, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error('not found'); return r.json() })
-      .then(data => { if (!data?.id) throw new Error('not found'); setQuotation(data); setLoading(false) })
+      .then(data => {
+        if (!data?.quotation) throw new Error('not found')
+        setQuotation(data.quotation)
+        if (data.company) setCompany(data.company as CompanyInfo)
+        const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(data.banks) ? data.banks : []
+        setBanks(list.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...bankBrand(b.bank) })))
+        setLoading(false)
+      })
       .catch(() => { setNotFound(true); setLoading(false) })
-    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
-    fetch('/api/banks').then(r => r.json()).then(d => {
-      const list: { bank: string; accountNo: string; name: string }[] = Array.isArray(d) ? d : []
-      if (!list.length) return
-      setBanks(list.map(b => ({ name: b.bank, type: '', no: b.accountNo, holder: b.name, ...bankBrand(b.bank) })))
-    }).catch(() => {})
   }, [id])
 
   if (loading) {

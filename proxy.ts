@@ -8,8 +8,9 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const authed = isValidToken(request.cookies.get(AUTH_COOKIE)?.value)
 
-  // Always let the login page, auth endpoints, and public stats through.
-  if (pathname === '/login' || pathname.startsWith('/api/auth') || pathname.startsWith('/api/public')) {
+  // Always let the login page, auth endpoints, public APIs, and the
+  // customer-facing share pages through without a session.
+  if (pathname === '/login' || pathname.startsWith('/api/auth') || pathname.startsWith('/api/public') || pathname.startsWith('/share')) {
     // Already signed in? Skip the login page.
     if (pathname === '/login' && authed) {
       return NextResponse.redirect(new URL('/', request.url))
