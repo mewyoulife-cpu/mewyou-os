@@ -59,6 +59,13 @@ const FALLBACK_BANKS: BankView[] = [
   { name: 'พร้อมเพย์ / PromptPay', type: '', no: '0-1055-60143-09-9', holder: 'มิวอี้ ดีไซน์ ดิจิตอลเน็ตเวิร์ค', brand: '#0a3a6b', icon: 'qr_code_2' },
 ]
 
+// Default Terms & Conditions lines (editable per quotation).
+export const DEFAULT_TERMS = [
+  'ระยะเวลาออกแบบ 7-10 วัน ( ไม่รวมพิมพ์ )',
+  'การแก้ไข : แก้ไขได้ไม่จำกัดครั้ง',
+  'เป็นเพียงข้อเสนอราคาเท่านั้น',
+]
+
 interface QuotationDocItem {
   name: string
   detail?: string
@@ -84,6 +91,7 @@ interface QuotationDocProps {
   bankIndex?: number
   banks?: BankView[]
   notes?: string
+  terms?: string[]
   projectName?: string
   ownerName?: string
   company?: CompanyInfo
@@ -109,6 +117,7 @@ export default function QuotationDoc(props: QuotationDocProps) {
   const depositAmt = total * 0.5
   const balanceAmt = total - depositAmt
   const signDate = props.issueDate || ''
+  const termsList = props.terms && props.terms.length ? props.terms : DEFAULT_TERMS
 
   return (
     <>
@@ -381,9 +390,15 @@ export default function QuotationDoc(props: QuotationDocProps) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 12.5, color: '#5a6772', lineHeight: 1.5 }}>
             <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>{payTermLine}</div>
-            <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>ระยะเวลาออกแบบ 7-10 วัน ( ไม่รวมพิมพ์ )</div>
-            <div style={{ display: 'flex', gap: 8 }}><span style={{ color: '#8294a6' }}>•</span>การแก้ไข : แก้ไขได้ไม่จำกัดครั้ง</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}><span style={{ color: '#6e8aa6' }}>•</span><span style={{ color: '#6e8aa6', fontWeight: 600 }}>เป็นเพียงข้อเสนอราคาเท่านั้น</span></div>
+            {termsList.map((line, i) => {
+              const last = i === termsList.length - 1
+              return (
+                <div key={i} style={{ display: 'flex', gap: 8, marginTop: last ? 4 : 0 }}>
+                  <span style={{ color: last ? '#6e8aa6' : '#8294a6' }}>•</span>
+                  <span style={last ? { color: '#6e8aa6', fontWeight: 600 } : undefined}>{line}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import QuotationDoc from '@/components/QuotationDoc'
+import QuotationDoc, { DEFAULT_TERMS } from '@/components/QuotationDoc'
+import TermsEditor from '@/components/TermsEditor'
 import { printDocNode } from '@/lib/printDoc'
 import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
@@ -121,6 +122,7 @@ export default function NewQuotationPage() {
     clientContact: '',
     clientPhone: '',
     notes: '',
+    terms: [...DEFAULT_TERMS] as string[],
   })
 
   useEffect(() => {
@@ -219,6 +221,7 @@ export default function NewQuotationPage() {
           clientContact: form.clientContact || null,
           clientPhone: form.clientPhone || null,
           notes: form.notes || null,
+          terms: JSON.stringify(form.terms.map(t => t.trim()).filter(Boolean)),
         }),
       })
       const data = await res.json().catch(() => null)
@@ -388,6 +391,13 @@ export default function NewQuotationPage() {
             <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 12 }}>หมายเหตุ</div>
             <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} placeholder="หมายเหตุเพิ่มเติม..." style={{ width: '100%', minHeight: 70, border: '1px solid #e4e8ec', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 13.5, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }} />
           </div>
+
+          {/* เงื่อนไข / Terms & Conditions */}
+          <div style={cardStyle}>
+            <div style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45', marginBottom: 4 }}>เงื่อนไข <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 13 }}>/ Terms &amp; Conditions</span></div>
+            <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 12 }}>บรรทัด &quot;การชำระเงิน&quot; แสดงอัตโนมัติตามเงื่อนไขการชำระเงินที่เลือก</div>
+            <TermsEditor terms={form.terms} onChange={next => setField('terms', next)} />
+          </div>
         </div>
 
         {/* RIGHT */}
@@ -502,6 +512,7 @@ export default function NewQuotationPage() {
                 bankIndex={form.bankIndex}
                 banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
                 notes={form.notes}
+                terms={form.terms}
                 company={company}
               />
             </div>

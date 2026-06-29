@@ -32,6 +32,7 @@ interface Quotation {
   paymentTerm: string
   bankIndex: number
   notes?: string
+  terms?: string
   projectName?: string
   ownerName?: string
   customer?: { name: string; company?: string; email?: string }
@@ -111,6 +112,7 @@ export default function QuotationDetailPage() {
           clientContact: quotation.clientContact ?? null,
           clientPhone: quotation.clientPhone ?? null,
           notes: quotation.notes ?? null,
+          terms: quotation.terms ?? null,
         }),
       })
       const data = await res.json()
@@ -163,6 +165,12 @@ export default function QuotationDetailPage() {
   let items: Item[] = []
   try {
     items = typeof quotation.items === 'string' ? JSON.parse(quotation.items) : quotation.items
+  } catch {}
+
+  let terms: string[] | undefined
+  try {
+    const t = quotation.terms ? JSON.parse(quotation.terms) : null
+    if (Array.isArray(t) && t.length) terms = t
   } catch {}
 
   const st = statusMap[quotation.status] || statusMap.draft
@@ -309,6 +317,7 @@ export default function QuotationDetailPage() {
           bankIndex={quotation.bankIndex}
           banks={banks}
           notes={quotation.notes}
+          terms={terms}
           projectName={quotation.projectName}
           ownerName={quotation.ownerName}
           company={company}

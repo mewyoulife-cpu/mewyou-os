@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import QuotationDoc from '@/components/QuotationDoc'
+import QuotationDoc, { DEFAULT_TERMS } from '@/components/QuotationDoc'
+import TermsEditor from '@/components/TermsEditor'
 import { printDocNode } from '@/lib/printDoc'
 import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
@@ -109,6 +110,7 @@ export default function EditQuotationPage() {
   const [clientContact, setClientContact] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [notes, setNotes] = useState('')
+  const [terms, setTerms] = useState<string[]>([...DEFAULT_TERMS])
   const [items, setItems] = useState<Item[]>([])
 
   useEffect(() => {
@@ -141,6 +143,12 @@ export default function EditQuotationPage() {
         setClientContact(q.clientContact || '')
         setClientPhone(q.clientPhone || '')
         setNotes(q.notes || '')
+        try {
+          const t = q.terms ? JSON.parse(q.terms) : null
+          setTerms(Array.isArray(t) && t.length ? t : [...DEFAULT_TERMS])
+        } catch {
+          setTerms([...DEFAULT_TERMS])
+        }
         let parsed: Item[] = []
         try {
           const raw = typeof q.items === 'string' ? JSON.parse(q.items) : q.items
@@ -198,6 +206,7 @@ export default function EditQuotationPage() {
           clientContact: clientContact || null,
           clientPhone: clientPhone || null,
           notes: notes || null,
+          terms: JSON.stringify(terms.map(t => t.trim()).filter(Boolean)),
         }),
       })
       router.push(`/quotation/${id}`)
@@ -364,10 +373,17 @@ export default function EditQuotationPage() {
             </button>
           </div>
 
-          {/* Card 4: หมายเหตุ / เงื่อนไข */}
+          {/* Card 4: หมายเหตุ */}
           <div style={cardStyle}>
-            <div style={headingStyle}>หมายเหตุ / เงื่อนไข</div>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="เงื่อนไขการชำระเงิน ระยะเวลา ฯลฯ" style={{ width: '100%', minHeight: 80, border: '1px solid #e4e8ec', borderRadius: 10, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }} />
+            <div style={headingStyle}>หมายเหตุ</div>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="หมายเหตุเพิ่มเติม..." style={{ width: '100%', minHeight: 80, border: '1px solid #e4e8ec', borderRadius: 10, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: '#5b6b77', outline: 'none', resize: 'vertical', background: '#fff', boxSizing: 'border-box', lineHeight: 1.5 }} />
+          </div>
+
+          {/* Card 5: เงื่อนไข / Terms & Conditions */}
+          <div style={cardStyle}>
+            <div style={headingStyle}>เงื่อนไข <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 13 }}>/ Terms &amp; Conditions</span></div>
+            <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 12, marginTop: -4 }}>บรรทัด &quot;การชำระเงิน&quot; แสดงอัตโนมัติตามเงื่อนไขการชำระเงินที่เลือก</div>
+            <TermsEditor terms={terms} onChange={setTerms} />
           </div>
         </div>
 
@@ -486,6 +502,7 @@ export default function EditQuotationPage() {
                 bankIndex={bankIndex}
                 banks={banks.map(b => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon }))}
                 notes={notes}
+                terms={terms}
                 company={company}
               />
             </div>

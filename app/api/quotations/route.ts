@@ -13,7 +13,7 @@ export async function GET() {
 // Whitelisted columns so unknown keys / empty foreign keys can't break the insert.
 const STRING_FIELDS = [
   'status', 'customerId', 'issueDate', 'expiry', 'paymentTerm',
-  'clientName', 'clientAddress', 'clientTaxId', 'clientContact', 'clientPhone', 'notes',
+  'clientName', 'clientAddress', 'clientTaxId', 'clientContact', 'clientPhone', 'notes', 'terms',
 ] as const
 
 // Highest existing sequence for the year — used only to seed the persistent
