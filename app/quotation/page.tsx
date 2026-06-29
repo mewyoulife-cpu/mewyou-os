@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import QuotationDoc, { type BankView } from '@/components/QuotationDoc'
+import { companyFromSettings, type CompanyInfo } from '@/lib/company'
 
 interface RawItem { qty: number; price: number }
 
@@ -53,6 +55,13 @@ export default function QuotationListPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
+  // Preview modal state
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const [previewData, setPreviewData] = useState<Record<string, unknown> | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [banks, setBanks] = useState<BankView[]>([])
+  const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
+
   useEffect(() => {
     fetch('/api/quotations')
       .then(r => r.json())
@@ -61,7 +70,28 @@ export default function QuotationListPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    fetch('/api/banks').then(r => r.json()).then(d => {
+      const arr = Array.isArray(d) ? d : []
+      setBanks(arr.map((b: Record<string, string>) => ({ name: b.bank, type: '', no: b.no, holder: b.name, brand: b.brand, icon: b.icon })))
+    }).catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(s => setCompany(companyFromSettings(s))).catch(() => {})
   }, [])
+
+  function openPreview(id: string) {
+    setPreviewId(id)
+    setPreviewData(null)
+    setPreviewLoading(true)
+    fetch(`/api/quotations/${id}`)
+      .then(r => r.json())
+      .then(d => setPreviewData(d))
+      .catch(() => setPreviewData(null))
+      .finally(() => setPreviewLoading(false))
+  }
+
+  function closePreview() {
+    setPreviewId(null)
+    setPreviewData(null)
+  }
 
   const counts = {
     all:      quotations.length,
@@ -196,7 +226,7 @@ export default function QuotationListPage() {
         {/* Table Header */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr',
+          gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr 84px',
           gap: 8,
           fontSize: 12, color: '#9aa7b2', fontWeight: 500,
           padding: '0 4px 12px',
@@ -208,6 +238,7 @@ export default function QuotationListPage() {
           <div>วันที่</div>
           <div style={{ textAlign: 'right' }}>ยอดเงิน</div>
           <div style={{ textAlign: 'right' }}>สถานะ</div>
+          <div style={{ textAlign: 'center' }}>พรีวิว</div>
         </div>
 
         {/* Body */}
@@ -233,7 +264,7 @@ export default function QuotationListPage() {
                 onMouseLeave={() => setHoveredRow(null)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr',
+                  gridTemplateColumns: '1.1fr 1.1fr 1.3fr 0.9fr 0.9fr 1fr 84px',
                   gap: 8,
                   alignItems: 'center',
                   fontSize: 13.5,
@@ -269,11 +300,108 @@ export default function QuotationListPage() {
                     {st.label}
                   </span>
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    title="พรีวิว"
+                    onClick={e => { e.stopPropagation(); openPreview(q.id) }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 34, height: 34, borderRadius: 9, cursor: 'pointer',
+                      border: '1px solid #e4e8ec', background: '#fff', color: '#5f7d99',
+                    }}
+                    onMouseEnter={ev => { ev.currentTarget.style.background = '#eef3f7'; ev.currentTarget.style.borderColor = '#cdd8e1' }}
+                    onMouseLeave={ev => { ev.currentTarget.style.background = '#fff'; ev.currentTarget.style.borderColor = '#e4e8ec' }}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: 19 }}>visibility</span>
+                  </button>
+                </div>
               </div>
             )
           })
         )}
       </div>
+
+      {/* Preview modal */}
+      {previewId && (
+        <div
+          onClick={closePreview}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(20,28,40,.5)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '32px 16px', overflowY: 'auto',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 820, background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 24px 70px rgba(20,30,45,.3)' }}
+          >
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 18px', borderBottom: '1px solid #eef1f4' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#2f3b45' }}>พรีวิวใบเสนอราคา</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => router.push(`/quotation/${previewId}`)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 36, padding: '0 13px', borderRadius: 9, cursor: 'pointer', border: '1px solid #e4e8ec', background: '#fff', color: '#5f7d99', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 18 }}>open_in_full</span>
+                  เปิดเต็มหน้า
+                </button>
+                <button
+                  onClick={closePreview}
+                  title="ปิด"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 9, cursor: 'pointer', border: '1px solid #e4e8ec', background: '#fff', color: '#7a8893' }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: 20 }}>close</span>
+                </button>
+              </div>
+            </div>
+            {/* Modal body */}
+            <div style={{ padding: '22px 24px 28px', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+              {previewLoading || !previewData ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', color: '#9aa7b2', gap: 10 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: 38 }}>hourglass_empty</span>
+                  <div style={{ fontSize: 14 }}>{previewLoading ? 'กำลังโหลด...' : 'โหลดเอกสารไม่สำเร็จ'}</div>
+                </div>
+              ) : (() => {
+                const pv = previewData
+                const str = (v: unknown) => (v == null ? undefined : String(v))
+                let pvItems: { name: string; detail?: string; qty: number; unit: string; price: number }[] = []
+                try {
+                  const raw = typeof pv.items === 'string' ? JSON.parse(pv.items as string) : pv.items
+                  if (Array.isArray(raw)) pvItems = raw
+                } catch {}
+                let pvTerms: string[] | undefined
+                try {
+                  const t = pv.terms ? JSON.parse(pv.terms as string) : null
+                  if (Array.isArray(t) && t.length) pvTerms = t
+                } catch {}
+                return (
+                  <QuotationDoc
+                    no={String(pv.no || '')}
+                    status={String(pv.status || 'draft')}
+                    issueDate={String(pv.issueDate || '')}
+                    expiry={str(pv.expiry) ?? null}
+                    clientName={str(pv.clientName)}
+                    clientAddress={str(pv.clientAddress)}
+                    clientTaxId={str(pv.clientTaxId)}
+                    clientContact={str(pv.clientContact)}
+                    clientPhone={str(pv.clientPhone)}
+                    items={pvItems}
+                    discount={Number(pv.discount) || 0}
+                    vatEnabled={pv.vatEnabled === true}
+                    paymentTerm={str(pv.paymentTerm)}
+                    bankIndex={Number(pv.bankIndex) || 0}
+                    banks={banks}
+                    notes={str(pv.notes)}
+                    terms={pvTerms}
+                    company={company}
+                  />
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
