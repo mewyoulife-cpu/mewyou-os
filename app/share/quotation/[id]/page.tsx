@@ -15,7 +15,31 @@ export default function SharedQuotationPage() {
   const [notFound, setNotFound] = useState(false)
   const [banks, setBanks] = useState<BankView[]>([])
   const [company, setCompany] = useState<CompanyInfo | undefined>(undefined)
+  const [downloading, setDownloading] = useState(false)
   const docRef = useRef<HTMLDivElement>(null)
+  const pdfRef = useRef<HTMLDivElement>(null)
+
+  async function handleDownload(docNo: string) {
+    const node = pdfRef.current
+    if (!node) return
+    setDownloading(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+      await html2pdf().set({
+        margin: 0,
+        filename: `${docNo || 'quotation'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: node.scrollWidth },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      }).from(node).save()
+    } catch {
+      // Fall back to the print dialog if PDF generation fails.
+      printDocNode(docRef.current, docNo)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -88,15 +112,17 @@ export default function SharedQuotationPage() {
           </div>
         </div>
         <button
-          onClick={() => printDocNode(docRef.current, docNo)}
+          onClick={() => handleDownload(docNo)}
+          disabled={downloading}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7, height: 42, padding: '0 18px',
             borderRadius: 11, background: '#5f7d99', color: '#fff', border: 'none',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: 14, fontWeight: 600, cursor: downloading ? 'wait' : 'pointer', fontFamily: 'inherit',
+            opacity: downloading ? 0.75 : 1,
           }}
         >
-          <span className="material-symbols-rounded" style={{ fontSize: 20 }}>download</span>
-          ดาวน์โหลด PDF
+          <span className="material-symbols-rounded" style={{ fontSize: 20 }}>{downloading ? 'progress_activity' : 'download'}</span>
+          {downloading ? 'กำลังสร้าง PDF...' : 'ดาวน์โหลด PDF'}
         </button>
       </div>
 
@@ -108,9 +134,11 @@ export default function SharedQuotationPage() {
           style={{
             background: '#fff', borderRadius: 14, border: '1px solid #e7ebef',
             boxShadow: '0 12px 40px rgba(30,45,60,.10)',
-            padding: '46px 48px', maxWidth: 860, margin: '0 auto',
+            maxWidth: 860, margin: '0 auto', overflow: 'hidden',
           }}
         >
+          {/* Inner node captured for the PDF — clean white with padding as margins */}
+          <div ref={pdfRef} style={{ background: '#fff', padding: '46px 48px' }}>
           <QuotationDoc
             no={docNo}
             status={String(q.status || 'draft')}
@@ -131,6 +159,7 @@ export default function SharedQuotationPage() {
             terms={terms ?? DEFAULT_TERMS}
             company={company}
           />
+          </div>
         </div>
 
         <div className="no-print" style={{ textAlign: 'center', marginTop: 22, fontSize: 12.5, color: '#9aa7b2' }}>
