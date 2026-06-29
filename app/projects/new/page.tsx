@@ -17,7 +17,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num
   completed: { label: 'Completed', bg: '#e8f5e9', color: '#4caf50', num: 10 },
 }
 
-const JOB_TYPES = ['Label Design', 'Packaging', 'Logo/CI', 'Illustration', 'Motion Design', 'Publication', 'Brand Identity', 'อื่นๆ']
+const JOB_TYPES = ['Label Design', 'Packaging', 'Logo/CI', 'Illustration', 'Motion Design', 'Publication', 'Brand Identity', 'ผลิตแพคเกจจิ้งไทย', 'ผลิตแพคเกจจิ้งจีน', 'อื่นๆ']
 const STATUSES = Object.keys(STATUS_MAP)
 
 const PRIORITY_OPTIONS = [
