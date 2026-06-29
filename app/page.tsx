@@ -35,23 +35,31 @@ function fmt(n: number) {
   return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-// Small CSS/char flags — render reliably everywhere (Windows lacks flag emoji).
+// Accurate SVG flags — render reliably everywhere (Windows lacks flag emoji).
 function FlagIcon({ code }: { code: 'cn' | 'th' }) {
+  const box: React.CSSProperties = { borderRadius: 2, display: 'block', flexShrink: 0, border: '1px solid rgba(0,0,0,.1)' }
   if (code === 'th') {
     return (
-      <span style={{
-        display: 'inline-block', width: 20, height: 14, borderRadius: 2, flexShrink: 0,
-        border: '1px solid rgba(0,0,0,.08)',
-        background: 'linear-gradient(#A51931 0 20%, #fff 20% 40%, #2D2A4A 40% 60%, #fff 60% 80%, #A51931 80% 100%)',
-      }} />
+      <svg viewBox="0 0 30 20" width={20} height={13} style={box} aria-label="ธงไทย">
+        <rect width="30" height="20" fill="#A51931" />
+        <rect y="3.33" width="30" height="13.34" fill="#F4F5F8" />
+        <rect y="6.66" width="30" height="6.68" fill="#2D2A4A" />
+      </svg>
     )
   }
+  // China: big star + 4 small stars in the upper-left canton.
+  const star = 'M0,-1 L0.2245,-0.309 L0.951,-0.309 L0.3633,0.118 L0.5878,0.809 L0,0.382 L-0.5878,0.809 L-0.3633,0.118 L-0.951,-0.309 L-0.2245,-0.309 Z'
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 20, height: 14, borderRadius: 2, flexShrink: 0, background: '#DE2910',
-      color: '#FFDE00', fontSize: 10, lineHeight: 1, border: '1px solid rgba(0,0,0,.08)',
-    }}>★</span>
+    <svg viewBox="0 0 30 20" width={20} height={13} style={box} aria-label="ธงจีน">
+      <rect width="30" height="20" fill="#DE2910" />
+      <g fill="#FFDE00">
+        <path d={star} transform="translate(5,5) scale(3)" />
+        <path d={star} transform="translate(10,2) scale(1)" />
+        <path d={star} transform="translate(12,4) scale(1)" />
+        <path d={star} transform="translate(12,7) scale(1)" />
+        <path d={star} transform="translate(10,9) scale(1)" />
+      </g>
+    </svg>
   )
 }
 
