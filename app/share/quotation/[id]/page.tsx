@@ -18,11 +18,44 @@ export default function SharedQuotationPage() {
   const [downloading, setDownloading] = useState(false)
   const docRef = useRef<HTMLDivElement>(null)
   const pdfRef = useRef<HTMLDivElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  // Render the sheet at its A4 design width and scale it down to fit narrow
+  // screens — so phones see the same proportions as the desktop preview.
+  const SHEET_W = 860
+  const [scale, setScale] = useState(1)
+  const [sheetH, setSheetH] = useState<number | null>(null)
+
+  useEffect(() => {
+    function recompute() {
+      const avail = Math.min(window.innerWidth - 24, SHEET_W)
+      setScale(Math.min(1, avail / SHEET_W))
+    }
+    recompute()
+    window.addEventListener('resize', recompute)
+    return () => window.removeEventListener('resize', recompute)
+  }, [])
+
+  // Measure the sheet's natural (unscaled) height so the scaled wrapper can
+  // reserve the right amount of vertical space (updates on font/content changes).
+  useEffect(() => {
+    const el = sheetRef.current
+    if (!el) return
+    const update = () => setSheetH(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [quotation])
 
   async function handleDownload(docNo: string) {
     const node = pdfRef.current
     if (!node) return
     setDownloading(true)
+    // Capture at full A4 size regardless of the on-screen mobile scale.
+    const sheet = sheetRef.current
+    const prevTransform = sheet?.style.transform
+    if (sheet) sheet.style.transform = 'none'
     try {
       const html2pdf = (await import('html2pdf.js')).default
       await html2pdf().set({
@@ -37,6 +70,7 @@ export default function SharedQuotationPage() {
       // Fall back to the print dialog if PDF generation fails.
       printDocNode(docRef.current, docNo)
     } finally {
+      if (sheet) sheet.style.transform = prevTransform || ''
       setDownloading(false)
     }
   }
@@ -89,6 +123,8 @@ export default function SharedQuotationPage() {
         @media print {
           .no-print { display: none !important; }
           .share-bg { background: #fff !important; padding: 0 !important; }
+          .share-scaler { width: auto !important; height: auto !important; max-width: none !important; }
+          .share-scaled { transform: none !important; width: auto !important; }
           .share-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; max-width: none !important; }
           @page { size: A4; margin: 12mm; }
         }
@@ -126,19 +162,27 @@ export default function SharedQuotationPage() {
         </button>
       </div>
 
-      {/* A4 sheet */}
-      <div className="share-bg" style={{ padding: '26px 16px 56px' }}>
+      {/* A4 sheet — scaled to fit the screen width (keeps A4 proportions) */}
+      <div className="share-bg" style={{ padding: '20px 12px 48px' }}>
         <div
-          ref={docRef}
-          className="share-sheet print-doc"
-          style={{
-            background: '#fff', borderRadius: 14, border: '1px solid #e7ebef',
-            boxShadow: '0 12px 40px rgba(30,45,60,.10)',
-            maxWidth: 860, margin: '0 auto', overflow: 'hidden',
-          }}
+          className="share-scaler"
+          style={{ width: SHEET_W * scale, maxWidth: '100%', margin: '0 auto', height: sheetH != null ? sheetH * scale : undefined }}
         >
-          {/* Inner node captured for the PDF — clean white with padding as margins */}
-          <div ref={pdfRef} style={{ background: '#fff', padding: '46px 48px' }}>
+          <div
+            ref={sheetRef}
+            className="share-scaled"
+            style={{ width: SHEET_W, transformOrigin: 'top left', transform: scale !== 1 ? `scale(${scale})` : undefined }}
+          >
+            <div
+              ref={docRef}
+              className="share-sheet print-doc"
+              style={{
+                background: '#fff', borderRadius: 14, border: '1px solid #e7ebef',
+                boxShadow: '0 12px 40px rgba(30,45,60,.10)', overflow: 'hidden',
+              }}
+            >
+              {/* Inner node captured for the PDF — clean white with padding as margins */}
+              <div ref={pdfRef} style={{ background: '#fff', padding: '46px 48px' }}>
           <QuotationDoc
             no={docNo}
             status={String(q.status || 'draft')}
@@ -159,6 +203,8 @@ export default function SharedQuotationPage() {
             terms={terms ?? DEFAULT_TERMS}
             company={company}
           />
+              </div>
+            </div>
           </div>
         </div>
 
