@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import ChinaPackagingFields, { CHINA_TYPE, emptyChina, computeChina, chinaFromJSON, type ChinaBase } from '@/components/ChinaPackagingFields'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num: number }> = {
   lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc', num: 1 },
@@ -88,7 +89,12 @@ export default function EditProjectPage() {
     value: '',
     priority: 'normal',
     brief: '',
+    china: emptyChina(),
   })
+
+  function setChina(key: keyof ChinaBase, val: string) {
+    setForm(f => ({ ...f, china: { ...f.china, [key]: val } }))
+  }
 
   useEffect(() => {
     fetch('/api/customers').then(r => r.json()).then(d => setCustomers(Array.isArray(d) ? d : (d.customers || []))).catch(() => {})
@@ -111,6 +117,7 @@ export default function EditProjectPage() {
           value: p.value != null ? String(p.value) : '',
           priority: p.priority || 'normal',
           brief: p.brief || '',
+          china: chinaFromJSON(p.chinaData),
         })
         setLoading(false)
       })
@@ -146,6 +153,9 @@ export default function EditProjectPage() {
           value: parseFloat(form.value) || 0,
           priority: form.priority,
           brief: form.brief,
+          chinaData: form.types.includes(CHINA_TYPE)
+            ? JSON.stringify(computeChina(form.china))
+            : null,
         }),
       })
       router.push(`/projects/${id}`)
@@ -249,6 +259,9 @@ export default function EditProjectPage() {
                     )
                   })}
                 </div>
+                {form.types.includes(CHINA_TYPE) && (
+                  <ChinaPackagingFields china={form.china} onChange={setChina} />
+                )}
               </div>
             </div>
           </div>

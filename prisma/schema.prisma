@@ -40,6 +40,7 @@ model Project {
   startDate  String?
   dueDate    String?
   brief      String?
+  chinaData  String?
   image      String?
   assignee   String?
   revisions  Int      @default(0)

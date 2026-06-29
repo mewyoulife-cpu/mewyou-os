@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ChinaPackagingFields, { CHINA_TYPE, emptyChina, computeChina, type ChinaBase } from '@/components/ChinaPackagingFields'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num: number }> = {
   lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc', num: 1 },
@@ -82,7 +83,12 @@ export default function NewProjectPage() {
     value: '',
     priority: 'normal',
     brief: '',
+    china: emptyChina(),
   })
+
+  function setChina(key: keyof ChinaBase, val: string) {
+    setForm(f => ({ ...f, china: { ...f.china, [key]: val } }))
+  }
 
   useEffect(() => {
     fetch('/api/customers').then(r => r.json()).then(setCustomers).catch(() => {})
@@ -117,6 +123,9 @@ export default function NewProjectPage() {
           value: parseFloat(form.value) || 0,
           priority: form.priority,
           brief: form.brief,
+          chinaData: form.types.includes(CHINA_TYPE)
+            ? JSON.stringify(computeChina(form.china))
+            : null,
         }),
       })
       router.push('/projects')
@@ -240,6 +249,9 @@ export default function NewProjectPage() {
                     )
                   })}
                 </div>
+                {form.types.includes(CHINA_TYPE) && (
+                  <ChinaPackagingFields china={form.china} onChange={setChina} />
+                )}
               </div>
             </div>
           </div>

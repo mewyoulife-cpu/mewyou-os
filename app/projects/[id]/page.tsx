@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { computeChina } from '@/components/ChinaPackagingFields'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   lead: { label: 'Lead', bg: '#eef2f5', color: '#8fa7bc' },
@@ -49,6 +50,7 @@ type Project = {
   startDate: string | null
   dueDate: string | null
   brief: string | null
+  chinaData?: string | null
   assignee: string | null
   revisions: number
   customer: {
@@ -311,6 +313,49 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* China packaging cost breakdown */}
+      {project.chinaData && (() => {
+        let d
+        try { d = computeChina(JSON.parse(project.chinaData)) } catch { return null }
+        const fmt = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 2 })
+        const rows: { label: string; value: number; highlight?: boolean }[] = [
+          { label: '1. ต้นทุนเงินหยวน (¥/ชิ้น)', value: d.yuanCost },
+          { label: '2. เรทเงิน (บาท/¥)', value: d.rate },
+          { label: '3. ต้นทุนบาท/ชิ้น (฿)', value: d.bahtPerPiece },
+          { label: '4. ต้นทุนบาทรวม (฿)', value: d.bahtTotal },
+          { label: '5. จำนวน Q (ชิ้น)', value: d.qty },
+          { label: '6. ราคาขนส่งต่อชิ้น (฿)', value: d.shipPerPiece },
+          { label: '7. ราคารวมค่าขนส่ง (฿)', value: d.shipTotal },
+          { label: '8. ราคาขาย (฿)', value: d.sellPrice },
+          { label: '9. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
+        ]
+        return (
+          <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+              <span style={{ fontSize: 17 }}>🇨🇳</span>
+              <span style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ข้อมูลต้นทุนผลิตแพคเกจจิ้งจีน</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
+              {rows.map(r => {
+                const neg = r.highlight && r.value < 0
+                return (
+                  <div key={r.label} style={{
+                    padding: '12px 14px', borderRadius: 12,
+                    background: r.highlight ? (neg ? '#fceeec' : '#eef6f1') : '#f7f9fa',
+                  }}>
+                    <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 5 }}>{r.label}</div>
+                    <div style={{
+                      fontSize: 17, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif",
+                      color: r.highlight ? (neg ? '#d9534f' : '#3d8a64') : '#2f3b45',
+                    }}>{fmt(r.value)}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* File Section */}
       <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
