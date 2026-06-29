@@ -323,12 +323,15 @@ export default function ProjectDetailPage() {
           { label: '1. ต้นทุนเงินหยวน (¥/ชิ้น)', value: d.yuanCost },
           { label: '2. เรทเงิน (บาท/¥)', value: d.rate },
           { label: '3. ต้นทุนบาท/ชิ้น (฿)', value: d.bahtPerPiece },
-          { label: '4. ต้นทุนบาทรวม (฿)', value: d.bahtTotal },
-          { label: '5. จำนวน Q (ชิ้น)', value: d.qty },
-          { label: '6. ราคาขนส่งต่อชิ้น (฿)', value: d.shipPerPiece },
-          { label: '7. ราคารวมค่าขนส่ง (฿)', value: d.shipTotal },
-          { label: '8. ราคาขาย (฿)', value: d.sellPrice },
-          { label: '9. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
+          { label: '4. จำนวน MOQ (ชิ้น)', value: d.moq },
+          { label: '5. ต้นทุนบาทรวม (฿)', value: d.bahtTotal },
+          { label: '6. จำนวน Q (ลอต)', value: d.qty },
+          { label: '7. ราคาขนส่งต่อ Q (฿)', value: d.shipRatePerQ },
+          { label: '8. ราคารวมค่าขนส่ง (฿)', value: d.shipTotal },
+          { label: '9. ต้นทุนขนส่ง/ชิ้น (฿)', value: d.shipPerUnit },
+          { label: '10. ต้นทุนรวม (฿)', value: d.totalCost },
+          { label: '11. ราคาขายรวม (฿)', value: d.sellPrice },
+          { label: '12. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
         ]
         return (
           <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
