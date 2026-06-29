@@ -57,15 +57,25 @@ export default function SharedQuotationPage() {
     const prevTransform = sheet?.style.transform
     if (sheet) sheet.style.transform = 'none'
     try {
-      const html2pdf = (await import('html2pdf.js')).default
-      await html2pdf().set({
-        margin: 0,
-        filename: `${docNo || 'quotation'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: node.scrollWidth },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] },
-      }).from(node).save()
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const margin = 8
+      const availW = pageW - margin * 2
+      const availH = pageH - margin * 2
+      const ratio = canvas.width / canvas.height
+      // Scale to fit within one A4 page, preserving aspect ratio.
+      let w = availW
+      let h = w / ratio
+      if (h > availH) { h = availH; w = h * ratio }
+      const x = (pageW - w) / 2
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', x, margin, w, h)
+      pdf.save(`${docNo || 'quotation'}.pdf`)
     } catch {
       // Fall back to the print dialog if PDF generation fails.
       printDocNode(docRef.current, docNo)

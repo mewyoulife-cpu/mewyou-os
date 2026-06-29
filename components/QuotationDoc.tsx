@@ -122,66 +122,66 @@ export default function QuotationDoc(props: QuotationDocProps) {
   return (
     <>
       {/* 1. Top Row: Title + Logo */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 30 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 16 }}>
         <div>
-          <div style={{ fontSize: 34, fontWeight: 700, color: '#3a4654', lineHeight: 1 }}>ใบเสนอราคา</div>
-          <div style={{ fontSize: 15, letterSpacing: 7, color: '#9aa7b2', fontWeight: 500, marginTop: 8 }}>QUOTATION</div>
+          <div style={{ fontSize: 27, fontWeight: 700, color: '#3a4654', lineHeight: 1 }}>ใบเสนอราคา</div>
+          <div style={{ fontSize: 13, letterSpacing: 6, color: '#9aa7b2', fontWeight: 500, marginTop: 5 }}>QUOTATION</div>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={co.logo || '/mewyou-wordmark.png'} alt={co.name} style={{ height: 82, width: 'auto', maxWidth: 220, objectFit: 'contain', display: 'block', flexShrink: 0 }} />
+        <img src={co.logo || '/mewyou-wordmark.png'} alt={co.name} style={{ height: 58, width: 'auto', maxWidth: 180, objectFit: 'contain', display: 'block', flexShrink: 0 }} />
       </div>
 
       {/* 2. Info Section: Customer + Metadata */}
-      <div style={{ display: 'flex', gap: 34, flexWrap: 'wrap', marginBottom: 34 }}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
         {/* Customer info box */}
         <div style={{ flex: '1.15 1 300px' }}>
           <div style={{ background: '#eef1f4', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '13px 16px' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8294a6', marginTop: 1 }}>person</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '9px 14px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#8294a6', marginTop: 1 }}>person</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, color: '#8a97a2' }}>ลูกค้า / Client</div>
-                <div style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, marginTop: 2 }}>{customerName}</div>
+                <div style={{ fontSize: 11, color: '#8a97a2' }}>ลูกค้า / Client</div>
+                <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 1 }}>{customerName}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '0 16px 13px' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8294a6', marginTop: 1 }}>location_on</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '0 14px 8px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#8294a6', marginTop: 1 }}>location_on</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, color: '#8a97a2' }}>ที่อยู่ / Address</div>
-                <div style={{ fontSize: 13, color: '#4a5763', marginTop: 2, lineHeight: 1.5 }}>
+                <div style={{ fontSize: 11, color: '#8a97a2' }}>ที่อยู่ / Address</div>
+                <div style={{ fontSize: 12, color: '#4a5763', marginTop: 1, lineHeight: 1.45 }}>
                   {props.clientAddress || '—'}
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '0 16px 14px' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8294a6', marginTop: 1 }}>badge</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '0 14px 9px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#8294a6', marginTop: 1 }}>badge</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, color: '#8a97a2' }}>เลขประจำตัวผู้เสียภาษี</div>
-                <div style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, marginTop: 2, fontFamily: "'IBM Plex Sans', monospace" }}>
+                <div style={{ fontSize: 11, color: '#8a97a2' }}>เลขประจำตัวผู้เสียภาษี</div>
+                <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 1, fontFamily: "'IBM Plex Sans', monospace" }}>
                   {props.clientTaxId || '—'}
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', background: '#dde4ea' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#6e8295' }}>contact_page</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px', background: '#dde4ea' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#6e8295' }}>contact_page</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, color: '#7e8b96' }}>ผู้ติดต่อ / Attention</div>
-                <div style={{ fontSize: 14, color: '#3a4654', fontWeight: 700, marginTop: 1 }}>
+                <div style={{ fontSize: 11, color: '#7e8b96' }}>ผู้ติดต่อ / Attention</div>
+                <div style={{ fontSize: 13, color: '#3a4654', fontWeight: 700, marginTop: 1 }}>
                   {props.clientContact || '—'}
                 </div>
               </div>
             </div>
           </div>
           {props.clientPhone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 16px 0' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 19, color: '#8294a6' }}>call</span>
-              <span style={{ fontSize: 12.5, color: '#8a97a2' }}>โทร / Tel :</span>
-              <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace" }}>{props.clientPhone}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px 0' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 17, color: '#8294a6' }}>call</span>
+              <span style={{ fontSize: 11.5, color: '#8a97a2' }}>โทร / Tel :</span>
+              <span style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace" }}>{props.clientPhone}</span>
             </div>
           )}
         </div>
 
         {/* Metadata list */}
-        <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 13, paddingTop: 2 }}>
+        <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 9, paddingTop: 1 }}>
           {[
             { icon: 'tag', label: 'เลขที่เอกสาร', value: props.no },
             { icon: 'calendar_today', label: 'วันที่ออก', value: props.issueDate },
@@ -189,32 +189,32 @@ export default function QuotationDoc(props: QuotationDocProps) {
             { icon: 'folder_open', label: 'โปรเจกต์', value: props.projectName || '—' },
             { icon: 'person', label: 'ผู้รับผิดชอบ', value: props.ownerName || '—' },
           ].map(row => (
-            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>{row.icon}</span>
-              <span style={{ flex: 1, fontSize: 13, color: '#6a7884' }}>{row.label}</span>
+            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#8294a6' }}>{row.icon}</span>
+              <span style={{ flex: 1, fontSize: 12, color: '#6a7884' }}>{row.label}</span>
               <span style={{ color: '#b8c2cb' }}>:</span>
-              <span style={{ fontSize: 13.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 120, textAlign: 'right' }}>{row.value}</span>
+              <span style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, fontFamily: "'IBM Plex Sans', monospace", minWidth: 110, textAlign: 'right' }}>{row.value}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* 3. Seller + Contact */}
-      <div style={{ display: 'flex', gap: 34, flexWrap: 'wrap', marginBottom: 30 }}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
         {/* Seller info */}
-        <div style={{ flex: '1.15 1 300px', display: 'flex', gap: 16 }}>
+        <div style={{ flex: '1.15 1 300px', display: 'flex', gap: 13 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={co.logo || '/mewyou-monogram.png'} alt="logo" style={{ width: 96, height: 96, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'contain', background: '#fff' }} />
+          <img src={co.logo || '/mewyou-monogram.png'} alt="logo" style={{ width: 66, height: 66, borderRadius: 7, flexShrink: 0, display: 'block', objectFit: 'contain', background: '#fff' }} />
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '4px 12px', borderRadius: 6, marginBottom: 8 }}>
+            <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '3px 10px', borderRadius: 6, marginBottom: 5 }}>
               ผู้ขอเสนอราคา / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Quotation From</span>
             </div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3a4654' }}>{co.name}{co.branch ? ` (${co.branch})` : ''}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#3a4654' }}>{co.name}{co.branch ? ` (${co.branch})` : ''}</div>
             {sellerAddress && (
-              <div style={{ fontSize: 12, color: '#6a7884', marginTop: 3, lineHeight: 1.55 }}>{sellerAddress}</div>
+              <div style={{ fontSize: 11, color: '#6a7884', marginTop: 2, lineHeight: 1.45 }}>{sellerAddress}</div>
             )}
             {co.taxId && (
-              <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600, marginTop: 6 }}>
+              <div style={{ fontSize: 11.5, color: '#3a4654', fontWeight: 600, marginTop: 4 }}>
                 เลขประจำตัวผู้เสียภาษี : <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{co.taxId}</span>
               </div>
             )}
@@ -223,18 +223,18 @@ export default function QuotationDoc(props: QuotationDocProps) {
 
         {/* Contact */}
         <div style={{ flex: '1 1 280px' }}>
-          <div style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '4px 12px', borderRadius: 6, marginBottom: 11 }}>
+          <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, color: '#5a6772', background: '#eef1f4', padding: '3px 10px', borderRadius: 6, marginBottom: 8 }}>
             ติดต่อเรา / <span style={{ color: '#8a97a2', fontWeight: 500 }}>Contact Us</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
               co.contactName ? { icon: 'person', text: co.contactName } : null,
               co.phone ? { icon: 'call', text: co.phone, mono: true } : null,
               co.email ? { icon: 'mail', text: co.email } : null,
               co.website ? { icon: 'chat', text: co.website } : null,
             ].filter((r): r is { icon: string; text: string; mono?: boolean } => !!r).map(row => (
-              <div key={row.icon + row.text} style={{ display: 'flex', alignItems: 'center', gap: 11, fontSize: 13, color: '#4a5763' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>{row.icon}</span>
+              <div key={row.icon + row.text} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#4a5763' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: 16, color: '#8294a6' }}>{row.icon}</span>
                 <span style={row.mono ? { fontFamily: "'IBM Plex Sans', monospace" } : {}}>{row.text}</span>
               </div>
             ))}
@@ -249,22 +249,22 @@ export default function QuotationDoc(props: QuotationDocProps) {
           display: 'grid', gridTemplateColumns: '54px 1fr 84px 74px 116px 116px',
           background: '#aebfcd', color: '#33414e', fontSize: 12, fontWeight: 600,
         }}>
-          <div style={{ padding: '9px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
+          <div style={{ padding: '7px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
             ลำดับ<div style={{ fontSize: 10.5, fontWeight: 400, color: '#5a6776' }}>No.</div>
           </div>
-          <div style={{ padding: '9px 12px', borderRight: '1px solid #c2cfda' }}>
+          <div style={{ padding: '7px 12px', borderRight: '1px solid #c2cfda' }}>
             รายละเอียด / <span style={{ fontWeight: 400 }}>Description</span>
           </div>
-          <div style={{ padding: '9px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
+          <div style={{ padding: '7px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
             จำนวน<div style={{ fontSize: 10.5, fontWeight: 400, color: '#5a6776' }}>Quantity</div>
           </div>
-          <div style={{ padding: '9px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
+          <div style={{ padding: '7px 8px', textAlign: 'center', borderRight: '1px solid #c2cfda' }}>
             หน่วย<div style={{ fontSize: 10.5, fontWeight: 400, color: '#5a6776' }}>Unit</div>
           </div>
-          <div style={{ padding: '9px 8px', textAlign: 'right', borderRight: '1px solid #c2cfda' }}>
+          <div style={{ padding: '7px 8px', textAlign: 'right', borderRight: '1px solid #c2cfda' }}>
             ราคาต่อหน่วย<div style={{ fontSize: 10.5, fontWeight: 400, color: '#5a6776' }}>Unit Price</div>
           </div>
-          <div style={{ padding: '9px 8px', textAlign: 'right' }}>
+          <div style={{ padding: '7px 8px', textAlign: 'right' }}>
             จำนวนเงิน<div style={{ fontSize: 10.5, fontWeight: 400, color: '#5a6776' }}>Amount</div>
           </div>
         </div>
@@ -275,26 +275,26 @@ export default function QuotationDoc(props: QuotationDocProps) {
             display: 'grid', gridTemplateColumns: '54px 1fr 84px 74px 116px 116px',
             fontSize: 13, color: '#3a4654', borderBottom: '1px solid #eef1f4',
           }}>
-            <div style={{ padding: '13px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5' }}>{idx + 1}</div>
-            <div style={{ padding: '13px 12px', borderRight: '1px solid #f0f2f5' }}>
+            <div style={{ padding: '8px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5' }}>{idx + 1}</div>
+            <div style={{ padding: '8px 12px', borderRight: '1px solid #f0f2f5' }}>
               <div>{item.name}</div>
               {item.detail && <div style={{ fontSize: 12, color: '#9aa7b2', marginTop: 3 }}>{item.detail}</div>}
             </div>
-            <div style={{ padding: '13px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5', fontFamily: "'IBM Plex Sans', monospace" }}>{item.qty}</div>
-            <div style={{ padding: '13px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5' }}>{item.unit}</div>
-            <div style={{ padding: '13px 8px', textAlign: 'right', borderRight: '1px solid #f0f2f5', fontFamily: "'IBM Plex Sans', monospace" }}>฿{fmt(item.price)}</div>
-            <div style={{ padding: '13px 8px', textAlign: 'right', fontFamily: "'IBM Plex Sans', monospace" }}>฿{fmt(item.qty * item.price)}</div>
+            <div style={{ padding: '8px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5', fontFamily: "'IBM Plex Sans', monospace" }}>{item.qty}</div>
+            <div style={{ padding: '8px 8px', textAlign: 'center', borderRight: '1px solid #f0f2f5' }}>{item.unit}</div>
+            <div style={{ padding: '8px 8px', textAlign: 'right', borderRight: '1px solid #f0f2f5', fontFamily: "'IBM Plex Sans', monospace" }}>฿{fmt(item.price)}</div>
+            <div style={{ padding: '8px 8px', textAlign: 'right', fontFamily: "'IBM Plex Sans', monospace" }}>฿{fmt(item.qty * item.price)}</div>
           </div>
         ))}
 
         {/* Empty lined area */}
         <div className="doc-filler" style={{
-          minHeight: 120,
+          minHeight: 24,
           background: 'repeating-linear-gradient(#ffffff,#ffffff 43px,#f4f6f8 43px,#f4f6f8 44px)',
         }} />
 
         {/* Remark footer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: '1px solid #e8ebee', background: '#fbfcfd' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 13px', borderTop: '1px solid #e8ebee', background: '#fbfcfd' }}>
           <span className="material-symbols-rounded" style={{ fontSize: 18, color: '#8294a6' }}>chat</span>
           <span style={{ fontSize: 12.5, color: '#7a8893', fontWeight: 600 }}>หมายเหตุ / Remark</span>
           <span style={{ fontSize: 12.5, color: '#5a6772' }}>{props.notes || ''}</span>
@@ -302,9 +302,9 @@ export default function QuotationDoc(props: QuotationDocProps) {
       </div>
 
       {/* 5. Summary */}
-      <div style={{ display: 'flex', gap: 30, flexWrap: 'wrap', marginTop: 28 }}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16 }}>
         <div style={{ flex: '1.05 1 300px' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#3a4654', marginBottom: 14 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#3a4654', marginBottom: 10 }}>
             สรุป <span style={{ color: '#9aa7b2', fontWeight: 500, fontSize: 13 }}>/ Summary</span>
           </div>
           {(props.discount || 0) > 0 && (
@@ -325,12 +325,12 @@ export default function QuotationDoc(props: QuotationDocProps) {
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 14.5, fontWeight: 700, color: '#3a4654' }}>จำนวนเงินทั้งสิ้น</span>
-            <span style={{ fontSize: 17, fontWeight: 700, color: '#6e8aa6', fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(total)} บาท</span>
+            <span style={{ fontSize: 15.5, fontWeight: 700, color: '#6e8aa6', fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(total)} บาท</span>
           </div>
           <div style={{ fontSize: 12.5, color: '#7a8893', fontWeight: 600 }}>({bahtText(total)})</div>
         </div>
         <div style={{ flex: '1 1 280px' }}>
-          <div style={{ background: '#eef1f4', borderRadius: '9px 9px 0 0', padding: '14px 18px' }}>
+          <div style={{ background: '#eef1f4', borderRadius: '9px 9px 0 0', padding: '11px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 13, color: '#5a6772', marginBottom: 10 }}>
               <span>มูลค่าเพิ่ม 7%</span>
               <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(vat)} บาท</span>
@@ -340,15 +340,15 @@ export default function QuotationDoc(props: QuotationDocProps) {
               <span style={{ fontFamily: "'IBM Plex Sans', monospace" }}>{fmt(afterDiscount)} บาท</span>
             </div>
           </div>
-          <div style={{ background: '#8294a6', borderRadius: '0 0 9px 9px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ background: '#8294a6', borderRadius: '0 0 9px 9px', padding: '11px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ fontSize: 12.5, color: '#e8edf2', fontWeight: 500 }}>จำนวนเงินทั้งสิ้น (รวมภาษีมูลค่าเพิ่ม)</span>
-            <span style={{ fontSize: 21, fontWeight: 700, color: '#fff', fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(total)} บาท</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: "'IBM Plex Sans', monospace", whiteSpace: 'nowrap' }}>{fmt(total)} บาท</span>
           </div>
         </div>
       </div>
 
       {/* 6. Payment + Terms */}
-      <div style={{ display: 'flex', gap: 34, flexWrap: 'wrap', marginTop: 34, paddingTop: 26, borderTop: '1px solid #eef1f4' }}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid #eef1f4' }}>
         {/* Payment */}
         <div style={{ flex: '1 1 280px' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#3a4654', marginBottom: 13 }}>
@@ -366,12 +366,12 @@ export default function QuotationDoc(props: QuotationDocProps) {
               <div style={{ fontSize: 11.5, color: '#8a97a2' }}>{bank.holder}</div>
             </div>
           </div>
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #f0f2f5', fontSize: 13 }}>
+          <div style={{ marginTop: 11, paddingTop: 10, borderTop: '1px solid #f0f2f5', fontSize: 13 }}>
             <span style={{ color: '#5a6772' }}>หมายเหตุ / Note : </span>
             <span style={{ color: '#6e8aa6', fontWeight: 600 }}>{payTermNote}</span>
           </div>
           {isDeposit && (
-            <div style={{ marginTop: 13, display: 'flex', gap: 10 }}>
+            <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
               <div style={{ flex: 1, background: '#eef3f7', borderRadius: 10, padding: '11px 13px' }}>
                 <div style={{ fontSize: 11, color: '#7e8b96' }}>มัดจำ 50% / Deposit</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#5f7d99', fontFamily: "'IBM Plex Sans', monospace", marginTop: 2 }}>{fmt(depositAmt)} บาท</div>
@@ -404,9 +404,9 @@ export default function QuotationDoc(props: QuotationDocProps) {
       </div>
 
       {/* 7. Signatures */}
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 38 }}>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 18 }}>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
-          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ผู้ออกเอกสาร <span style={{ color: '#a3aeb8' }}>/ Prepared By</span></div>
+          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 18 }}>ผู้ออกเอกสาร <span style={{ color: '#a3aeb8' }}>/ Prepared By</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
           <div style={{ fontSize: 12.5, color: '#3a4654', fontWeight: 600 }}>{co.contactName || co.name}</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
@@ -422,13 +422,13 @@ export default function QuotationDoc(props: QuotationDocProps) {
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
         </div>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
-          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ผู้รับใบเสนอราคา <span style={{ color: '#a3aeb8' }}>/ Receiver</span></div>
+          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 18 }}>ผู้รับใบเสนอราคา <span style={{ color: '#a3aeb8' }}>/ Receiver</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
           <div style={{ fontSize: 12.5, color: '#c4cdd5' }}>&nbsp;</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
         </div>
         <div style={{ flex: '1 1 150px', textAlign: 'center' }}>
-          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 30 }}>ตราประทับ <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
+          <div style={{ fontSize: 11.5, color: '#6a7884', textAlign: 'left', marginBottom: 18 }}>ตราประทับ <span style={{ color: '#a3aeb8' }}>/ Company Stamp</span></div>
           <div style={{ borderBottom: '1px solid #c4cdd5', marginBottom: 8 }} />
           <div style={{ fontSize: 12.5, color: '#c4cdd5' }}>&nbsp;</div>
           <div style={{ fontSize: 11.5, color: '#9aa7b2', fontFamily: "'IBM Plex Sans', monospace" }}>{signDate}</div>
