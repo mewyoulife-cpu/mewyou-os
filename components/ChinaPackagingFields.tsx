@@ -68,11 +68,12 @@ export function computeChina(b: ChinaBase) {
   const totalCost = bahtTotal + shipTotal         // ต้นทุนรวม = สินค้า + ขนส่ง
   const sellTotal = sellPrice * moq               // ราคาขายรวม = ราคาขาย × MOQ
   const netProfit = sellTotal - totalCost         // กำไรสุทธิ = ราคาขายรวม − ต้นทุนรวม
+  const netMarginPct = totalCost > 0 ? (netProfit / totalCost) * 100 : 0 // กำไร % จากต้นทุน
 
   return {
     yuanCost, rate, moq, qty, shipMethod: b.shipMethod,
     shipPerPiece: num(b.shipPerPiece), // keep base value so re-computing stored output is idempotent
-    sellPrice, bahtPerPiece, bahtTotal, shipRatePerQ, shipTotal, shipPerUnit, totalCost, sellTotal, netProfit,
+    sellPrice, bahtPerPiece, bahtTotal, shipRatePerQ, shipTotal, shipPerUnit, totalCost, sellTotal, netProfit, netMarginPct,
   }
 }
 
@@ -104,22 +105,28 @@ function InputCell({ label, unit, value, onChange }: {
   )
 }
 
-function CalcCell({ label, unit, value, highlight }: {
-  label: string; unit?: string; value: number; highlight?: boolean
+function CalcCell({ label, unit, value, highlight, badge }: {
+  label: string; unit?: string; value: number; highlight?: boolean; badge?: string
 }) {
   const neg = highlight && value < 0
   return (
     <div>
       <div style={fieldLabel}>{label}{unit ? ` (${unit})` : ''}</div>
       <div style={{
-        height: 38, display: 'flex', alignItems: 'center', padding: '0 11px',
+        height: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 11px',
         borderRadius: 9, fontSize: 13.5, fontWeight: 600, boxSizing: 'border-box',
         background: highlight ? (neg ? '#fceeec' : '#eef6f1') : '#f5f7f9',
         color: highlight ? (neg ? '#d9534f' : '#3d8a64') : '#54697d',
         border: '1px solid transparent',
         fontFamily: "'IBM Plex Sans', sans-serif",
       }}>
-        {fmt(value)}
+        <span>{fmt(value)}</span>
+        {badge && (
+          <span style={{
+            fontSize: 11.5, fontWeight: 700, padding: '2px 7px', borderRadius: 7,
+            background: neg ? '#f7d9d6' : '#d8ecdf', color: neg ? '#d9534f' : '#2f7a52',
+          }}>{badge}</span>
+        )}
       </div>
     </div>
   )
@@ -191,7 +198,8 @@ export default function ChinaPackagingFields({ china, onChange }: {
         <CalcCell label="10. ต้นทุนรวม" unit="฿" value={d.totalCost} />
         <InputCell label="11. ราคาขาย" unit="฿/ชิ้น" value={china.sellPrice} onChange={v => onChange('sellPrice', v)} />
         <CalcCell label="12. ราคาขายรวม" unit="฿" value={d.sellTotal} />
-        <CalcCell label="13. กำไรสุทธิ" unit="฿" value={d.netProfit} highlight />
+        <CalcCell label="13. กำไรสุทธิ" unit="฿" value={d.netProfit} highlight
+          badge={`${d.netMarginPct >= 0 ? '+' : ''}${fmt(d.netMarginPct)}%`} />
       </div>
     </div>
   )

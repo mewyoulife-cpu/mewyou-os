@@ -319,7 +319,7 @@ export default function ProjectDetailPage() {
         let d
         try { d = computeChina(JSON.parse(project.chinaData)) } catch { return null }
         const fmt = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 2 })
-        const rows: { label: string; value: number; highlight?: boolean }[] = [
+        const rows: { label: string; value: number; highlight?: boolean; badge?: string }[] = [
           { label: '1. ต้นทุนเงินหยวน (¥/ชิ้น)', value: d.yuanCost },
           { label: '2. เรทเงิน (บาท/¥)', value: d.rate },
           { label: '3. ต้นทุนบาท/ชิ้น (฿)', value: d.bahtPerPiece },
@@ -332,7 +332,7 @@ export default function ProjectDetailPage() {
           { label: '10. ต้นทุนรวม (฿)', value: d.totalCost },
           { label: '11. ราคาขาย (฿/ชิ้น)', value: d.sellPrice },
           { label: '12. ราคาขายรวม (฿)', value: d.sellTotal },
-          { label: '13. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
+          { label: '13. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true, badge: `${d.netMarginPct >= 0 ? '+' : ''}${fmt(d.netMarginPct)}%` },
         ]
         return (
           <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
@@ -357,10 +357,18 @@ export default function ProjectDetailPage() {
                     background: r.highlight ? (neg ? '#fceeec' : '#eef6f1') : '#f7f9fa',
                   }}>
                     <div style={{ fontSize: 12, color: '#9aa7b2', marginBottom: 5 }}>{r.label}</div>
-                    <div style={{
-                      fontSize: 17, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif",
-                      color: r.highlight ? (neg ? '#d9534f' : '#3d8a64') : '#2f3b45',
-                    }}>{fmt(r.value)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        fontSize: 17, fontWeight: 700, fontFamily: "'IBM Plex Sans', sans-serif",
+                        color: r.highlight ? (neg ? '#d9534f' : '#3d8a64') : '#2f3b45',
+                      }}>{fmt(r.value)}</span>
+                      {r.badge && (
+                        <span style={{
+                          fontSize: 11.5, fontWeight: 700, padding: '2px 7px', borderRadius: 7,
+                          background: neg ? '#f7d9d6' : '#d8ecdf', color: neg ? '#d9534f' : '#2f7a52',
+                        }}>{r.badge}</span>
+                      )}
+                    </div>
                   </div>
                 )
               })}
