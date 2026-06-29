@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { documentTotal } from '@/lib/customerStats'
+import { CHINA_TYPE, THAI_TYPE, chinaNetProfit } from '@/lib/chinaPackaging'
 
 const THAI_SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 const DAY_MS = 86400000
@@ -117,7 +118,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.project.findMany({
       where: { createdAt: { gte: prevFrom, lte: prevTo } },
-      select: { status: true, value: true },
+      select: { status: true, value: true, type: true, cost: true, chinaData: true },
     }),
     prisma.document.findMany({
       where: { ...invoiceWhere, createdAt: { gte: fromD, lte: toD } },
@@ -163,12 +164,26 @@ export async function GET(req: NextRequest) {
   const outstanding = rangeInvoices.reduce((s, d) => s + documentTotal(d), 0)
   const prevOutstanding = prevInvoices.reduce((s, d) => s + documentTotal(d), 0)
 
+  // ---- Packaging-production net profit (China = chinaData sheet; Thai = value - cost) ----
+  const hasType = (t: string | null | undefined, key: string) => (t || '').includes(key)
+  const sumChinaProfit = (rows: { type?: string | null; chinaData?: string | null }[]) =>
+    rows.filter(p => hasType(p.type, CHINA_TYPE)).reduce((s, p) => s + chinaNetProfit(p.chinaData), 0)
+  const sumThaiProfit = (rows: { type?: string | null; value?: number; cost?: number }[]) =>
+    rows.filter(p => hasType(p.type, THAI_TYPE)).reduce((s, p) => s + ((p.value || 0) - (p.cost || 0)), 0)
+
+  const chinaProfit = sumChinaProfit(rangeProjects)
+  const prevChinaProfit = sumChinaProfit(prevProjects)
+  const thaiProfit = sumThaiProfit(rangeProjects)
+  const prevThaiProfit = sumThaiProfit(prevProjects)
+
   const kpis = {
     projects: { value: projCount, ...trend(projCount, prevProjCount) },
     waitingDesign: { value: waiting, ...trend(waiting, prevWaiting) },
     completed: { value: completed, ...trend(completed, prevCompleted) },
     sales: { value: Math.round(sales), ...trend(sales, prevSales) },
     outstanding: { value: Math.round(outstanding), ...trend(outstanding, prevOutstanding) },
+    chinaProfit: { value: Math.round(chinaProfit), ...trend(chinaProfit, prevChinaProfit) },
+    thaiProfit: { value: Math.round(thaiProfit), ...trend(thaiProfit, prevThaiProfit) },
   }
 
   // ---- Donut (status breakdown of projects in range) ----
