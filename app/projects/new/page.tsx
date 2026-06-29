@@ -18,6 +18,10 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string; num
 }
 
 const JOB_TYPES = ['Label Design', 'Packaging', 'Logo/CI', 'Illustration', 'Motion Design', 'Publication', 'Brand Identity', 'ผลิตแพคเกจจิ้งไทย', 'ผลิตแพคเกจจิ้งจีน', 'อื่นๆ']
+const JOB_TYPE_FLAGS: Record<string, string> = {
+  'ผลิตแพคเกจจิ้งไทย': '🇹🇭',
+  'ผลิตแพคเกจจิ้งจีน': '🇨🇳',
+}
 const STATUSES = Object.keys(STATUS_MAP)
 
 const PRIORITY_OPTIONS = [
@@ -210,11 +214,15 @@ export default function NewProjectPage() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
                   {JOB_TYPES.map(t => {
                     const active = form.types.includes(t)
+                    const flag = JOB_TYPE_FLAGS[t]
                     return (
                       <button
                         key={t}
                         onClick={() => toggleType(t)}
                         style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
                           padding: '6px 14px',
                           borderRadius: 20,
                           border: active ? '1.5px solid #5f7d99' : '1.5px solid #dde3e9',
@@ -226,6 +234,7 @@ export default function NewProjectPage() {
                           fontFamily: 'inherit',
                         }}
                       >
+                        {flag && <span style={{ fontSize: 14, lineHeight: 1 }}>{flag}</span>}
                         {t}
                       </button>
                     )
