@@ -330,8 +330,9 @@ export default function ProjectDetailPage() {
           { label: '8. ราคารวมค่าขนส่ง (฿)', value: d.shipTotal },
           { label: '9. ต้นทุนขนส่ง/ชิ้น (฿)', value: d.shipPerUnit },
           { label: '10. ต้นทุนรวม (฿)', value: d.totalCost },
-          { label: '11. ราคาขายรวม (฿)', value: d.sellPrice },
-          { label: '12. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
+          { label: '11. ราคาขาย (฿/ชิ้น)', value: d.sellPrice },
+          { label: '12. ราคาขายรวม (฿)', value: d.sellTotal },
+          { label: '13. กำไรสุทธิ (฿)', value: d.netProfit, highlight: true },
         ]
         return (
           <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>

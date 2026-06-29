@@ -52,9 +52,9 @@ export function chinaFromJSON(str: string | null | undefined): ChinaBase {
 export function computeChina(b: ChinaBase) {
   const yuanCost = num(b.yuanCost)
   const rate = num(b.rate)
-  const moq = num(b.moq)       // จำนวนชิ้นที่ผลิตจริง
-  const qty = num(b.qty)       // จำนวนลอตขนส่ง
-  const sellPrice = num(b.sellPrice)
+  const moq = num(b.moq)            // จำนวนชิ้นที่ผลิตจริง
+  const qty = num(b.qty)            // จำนวนลอตขนส่ง
+  const sellPrice = num(b.sellPrice) // ราคาขายต่อชิ้น
   // A chosen shipping method fixes the per-Q rate; otherwise use the manual input.
   const fixedRate = shipRateFor(b.shipMethod)
   const shipRatePerQ = fixedRate != null ? fixedRate : num(b.shipPerPiece)
@@ -64,12 +64,13 @@ export function computeChina(b: ChinaBase) {
   const shipTotal = shipRatePerQ * qty            // ค่าขนส่งรวม = ต่อ Q × จำนวน Q
   const shipPerUnit = moq > 0 ? shipTotal / moq : 0 // ต้นทุนขนส่ง/ชิ้น = ขนส่งรวม ÷ MOQ
   const totalCost = bahtTotal + shipTotal         // ต้นทุนรวม = สินค้า + ขนส่ง
-  const netProfit = sellPrice - totalCost         // กำไรสุทธิ = ราคาขายรวม − ต้นทุนรวม
+  const sellTotal = sellPrice * moq               // ราคาขายรวม = ราคาขาย × MOQ
+  const netProfit = sellTotal - totalCost         // กำไรสุทธิ = ราคาขายรวม − ต้นทุนรวม
 
   return {
     yuanCost, rate, moq, qty, shipMethod: b.shipMethod,
     shipPerPiece: num(b.shipPerPiece), // keep base value so re-computing stored output is idempotent
-    sellPrice, bahtPerPiece, bahtTotal, shipRatePerQ, shipTotal, shipPerUnit, totalCost, netProfit,
+    sellPrice, bahtPerPiece, bahtTotal, shipRatePerQ, shipTotal, shipPerUnit, totalCost, sellTotal, netProfit,
   }
 }
 
@@ -182,8 +183,9 @@ export default function ChinaPackagingFields({ china, onChange }: {
         <CalcCell label="8. ราคารวมค่าขนส่ง" unit="฿" value={d.shipTotal} />
         <CalcCell label="9. ต้นทุนขนส่ง/ชิ้น" unit="฿" value={d.shipPerUnit} />
         <CalcCell label="10. ต้นทุนรวม" unit="฿" value={d.totalCost} />
-        <InputCell label="11. ราคาขายรวม" unit="฿" value={china.sellPrice} onChange={v => onChange('sellPrice', v)} />
-        <CalcCell label="12. กำไรสุทธิ" unit="฿" value={d.netProfit} highlight />
+        <InputCell label="11. ราคาขาย" unit="฿/ชิ้น" value={china.sellPrice} onChange={v => onChange('sellPrice', v)} />
+        <CalcCell label="12. ราคาขายรวม" unit="฿" value={d.sellTotal} />
+        <CalcCell label="13. กำไรสุทธิ" unit="฿" value={d.netProfit} highlight />
       </div>
     </div>
   )
