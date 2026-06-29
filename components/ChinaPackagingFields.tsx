@@ -55,9 +55,11 @@ export function computeChina(b: ChinaBase) {
   const moq = num(b.moq)            // จำนวนชิ้นที่ผลิตจริง
   const qty = num(b.qty)            // จำนวนลอตขนส่ง
   const sellPrice = num(b.sellPrice) // ราคาขายต่อชิ้น
-  // A chosen shipping method fixes the per-Q rate; otherwise use the manual input.
-  const fixedRate = shipRateFor(b.shipMethod)
-  const shipRatePerQ = fixedRate != null ? fixedRate : num(b.shipPerPiece)
+  // The entered shipping price takes priority; the chosen method only provides
+  // a default fallback when the field is left empty (rates fluctuate occasionally).
+  const typedRate = num(b.shipPerPiece)
+  const presetRate = shipRateFor(b.shipMethod)
+  const shipRatePerQ = typedRate > 0 ? typedRate : (presetRate != null ? presetRate : 0)
 
   const bahtPerPiece = yuanCost * rate            // ต้นทุนบาท/ชิ้น
   const bahtTotal = bahtPerPiece * moq            // ต้นทุนบาทรวม = บาท/ชิ้น × MOQ
@@ -148,7 +150,14 @@ export default function ChinaPackagingFields({ china, onChange }: {
               <button
                 key={m.key}
                 type="button"
-                onClick={() => onChange('shipMethod', active ? '' : m.key)}
+                onClick={() => {
+                  if (active) {
+                    onChange('shipMethod', '')
+                  } else {
+                    onChange('shipMethod', m.key)
+                    onChange('shipPerPiece', String(m.rate)) // prefill default, still editable
+                  }
+                }}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '7px 14px', borderRadius: 20,
@@ -175,11 +184,8 @@ export default function ChinaPackagingFields({ china, onChange }: {
         <InputCell label="4. จำนวน MOQ" unit="ชิ้น" value={china.moq} onChange={v => onChange('moq', v)} />
         <CalcCell label="5. ต้นทุนบาทรวม" unit="฿" value={d.bahtTotal} />
         <InputCell label="6. จำนวน Q" unit="ลอต" value={china.qty} onChange={v => onChange('qty', v)} />
-        {china.shipMethod ? (
-          <CalcCell label="7. ราคาขนส่งต่อ Q" unit="฿" value={d.shipRatePerQ} />
-        ) : (
-          <InputCell label="7. ราคาขนส่งต่อ Q" unit="฿" value={china.shipPerPiece} onChange={v => onChange('shipPerPiece', v)} />
-        )}
+        <InputCell label="7. ราคาขนส่งต่อ Q" unit="฿" value={china.shipPerPiece} onChange={v => onChange('shipPerPiece', v)} />
+
         <CalcCell label="8. ราคารวมค่าขนส่ง" unit="฿" value={d.shipTotal} />
         <CalcCell label="9. ต้นทุนขนส่ง/ชิ้น" unit="฿" value={d.shipPerUnit} />
         <CalcCell label="10. ต้นทุนรวม" unit="฿" value={d.totalCost} />
