@@ -35,6 +35,26 @@ function fmt(n: number) {
   return '฿' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
+// Small CSS/char flags — render reliably everywhere (Windows lacks flag emoji).
+function FlagIcon({ code }: { code: 'cn' | 'th' }) {
+  if (code === 'th') {
+    return (
+      <span style={{
+        display: 'inline-block', width: 20, height: 14, borderRadius: 2, flexShrink: 0,
+        border: '1px solid rgba(0,0,0,.08)',
+        background: 'linear-gradient(#A51931 0 20%, #fff 20% 40%, #2D2A4A 40% 60%, #fff 60% 80%, #A51931 80% 100%)',
+      }} />
+    )
+  }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 20, height: 14, borderRadius: 2, flexShrink: 0, background: '#DE2910',
+      color: '#FFDE00', fontSize: 10, lineHeight: 1, border: '1px solid rgba(0,0,0,.08)',
+    }}>★</span>
+  )
+}
+
 function getThaiBuddhistDate(date: Date): string {
   const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
   const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
@@ -173,14 +193,14 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
   const { t, lang } = useI18n()
   const glass = theme === 'glass'
   const k = data.kpis
-  const kpis = [
+  const kpis: { icon: string; label: string; value: string; unit: string; up: boolean; trend: string; flag?: 'cn' | 'th' }[] = [
     { icon: 'folder_open', label: 'โปรเจกต์ทั้งหมด', value: String(k.projects.value), unit: 'โปรเจกต์', up: k.projects.up, trend: k.projects.pct },
     { icon: 'draw', label: 'กำลังรอออกแบบ', value: String(k.waitingDesign.value), unit: 'โปรเจกต์', up: k.waitingDesign.up, trend: k.waitingDesign.pct },
     { icon: 'task_alt', label: 'งานเสร็จสิ้นแล้ว', value: String(k.completed.value), unit: 'โปรเจกต์', up: k.completed.up, trend: k.completed.pct },
     { icon: 'payments', label: 'ยอดขายรวม', value: k.sales.value > 0 ? fmtShort(k.sales.value) : '฿0', unit: '', up: k.sales.up, trend: k.sales.pct },
     { icon: 'receipt_long', label: 'ยอดค้างชำระ', value: k.outstanding.value > 0 ? fmtShort(k.outstanding.value) : '฿0', unit: '', up: k.outstanding.up, trend: k.outstanding.pct },
-    { icon: 'savings', label: '🇨🇳 กำไรแพคเกจจิ้งจีน', value: fmtShort(k.chinaProfit.value), unit: '', up: k.chinaProfit.up, trend: k.chinaProfit.pct },
-    { icon: 'savings', label: '🇹🇭 กำไรแพคเกจจิ้งไทย', value: fmtShort(k.thaiProfit.value), unit: '', up: k.thaiProfit.up, trend: k.thaiProfit.pct },
+    { icon: 'savings', label: 'กำไรแพคเกจจิ้งจีน', value: fmtShort(k.chinaProfit.value), unit: '', up: k.chinaProfit.up, trend: k.chinaProfit.pct, flag: 'cn' },
+    { icon: 'savings', label: 'กำไรแพคเกจจิ้งไทย', value: fmtShort(k.thaiProfit.value), unit: '', up: k.thaiProfit.up, trend: k.thaiProfit.pct, flag: 'th' },
   ]
 
   const donutData = [
@@ -199,6 +219,7 @@ function DashboardBody({ data, rangeLabel, weekDays, todayStr, now }: {
           <div key={kp.label} className="glass-card" style={{ ...card, flex: '1 1 175px', minWidth: 168, padding: '17px 19px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#7a8893', fontSize: 13, fontWeight: 500, marginBottom: 13 }}>
               <span className="material-symbols-rounded" style={{ fontSize: 26, color: glass ? '#ffffff' : '#9fb0bf' }}>{kp.icon}</span>
+              {kp.flag && <FlagIcon code={kp.flag} />}
               {t(kp.label)}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
