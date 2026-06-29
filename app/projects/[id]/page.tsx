@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { computeChina } from '@/components/ChinaPackagingFields'
+import { computeChina, SHIP_METHODS } from '@/components/ChinaPackagingFields'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   lead: { label: 'Lead', bg: '#eef2f5', color: '#8fa7bc' },
@@ -332,9 +332,17 @@ export default function ProjectDetailPage() {
         ]
         return (
           <div style={{ background: '#ffffff', borderRadius: 18, border: '1px solid #edf0f3', padding: 22, marginTop: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 17 }}>🇨🇳</span>
               <span style={{ fontSize: 15.5, fontWeight: 600, color: '#2f3b45' }}>ข้อมูลต้นทุนผลิตแพคเกจจิ้งจีน</span>
+              {(() => {
+                const m = SHIP_METHODS.find(x => x.key === d.shipMethod)
+                return m ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: '#e8eef4', color: '#5f7d99' }}>
+                    {m.icon} {m.label}
+                  </span>
+                ) : null
+              })()}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
               {rows.map(r => {

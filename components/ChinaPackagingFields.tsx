@@ -9,12 +9,24 @@ export type ChinaBase = {
   yuanCost: string     // 1. ต้นทุนเงินหยวน (¥ / ชิ้น)
   rate: string         // 2. เรทเงิน (บาท/หยวน)
   qty: string          // 5. จำนวน Q
-  shipPerPiece: string // 7. ราคาขนส่งต่อชิ้น
-  sellPrice: string    // 9. ราคาขาย (รวม)
+  shipMethod: string   // วิธีขนส่ง: '' | 'sea' | 'truck'
+  shipPerPiece: string // 6. ราคาขนส่งต่อชิ้น (กรอกเอง เมื่อไม่เลือกวิธีขนส่ง)
+  sellPrice: string    // 8. ราคาขาย (รวม)
+}
+
+// Fixed shipping rates per 1 Q.
+export const SHIP_METHODS = [
+  { key: 'sea', label: 'ขนส่งโดยเรือ', icon: '🚢', rate: 3600 },
+  { key: 'truck', label: 'ขนส่งโดยรถ', icon: '🚛', rate: 5700 },
+] as const
+
+function shipRateFor(method: string): number | null {
+  const m = SHIP_METHODS.find(x => x.key === method)
+  return m ? m.rate : null
 }
 
 export function emptyChina(): ChinaBase {
-  return { yuanCost: '', rate: '', qty: '', shipPerPiece: '', sellPrice: '' }
+  return { yuanCost: '', rate: '', qty: '', shipMethod: '', shipPerPiece: '', sellPrice: '' }
 }
 
 const num = (v: string | number | undefined) => {
@@ -28,7 +40,8 @@ export function chinaFromJSON(str: string | null | undefined): ChinaBase {
   try {
     const c = JSON.parse(str)
     const s = (n: unknown) => (n == null || n === 0 ? '' : String(n))
-    return { yuanCost: s(c.yuanCost), rate: s(c.rate), qty: s(c.qty), shipPerPiece: s(c.shipPerPiece), sellPrice: s(c.sellPrice) }
+    const method = c.shipMethod === 'sea' || c.shipMethod === 'truck' ? c.shipMethod : ''
+    return { yuanCost: s(c.yuanCost), rate: s(c.rate), qty: s(c.qty), shipMethod: method, shipPerPiece: s(c.shipPerPiece), sellPrice: s(c.sellPrice) }
   } catch {
     return emptyChina()
   }
@@ -39,13 +52,15 @@ export function computeChina(b: ChinaBase) {
   const yuanCost = num(b.yuanCost)
   const rate = num(b.rate)
   const qty = num(b.qty)
-  const shipPerPiece = num(b.shipPerPiece)
   const sellPrice = num(b.sellPrice)
+  // A chosen shipping method fixes the per-Q rate; otherwise use the manual input.
+  const fixedRate = shipRateFor(b.shipMethod)
+  const shipPerPiece = fixedRate != null ? fixedRate : num(b.shipPerPiece)
   const bahtPerPiece = yuanCost * rate
   const bahtTotal = bahtPerPiece * qty
   const shipTotal = shipPerPiece * qty
   const netProfit = sellPrice - bahtTotal - shipTotal
-  return { yuanCost, rate, qty, shipPerPiece, sellPrice, bahtPerPiece, bahtTotal, shipTotal, netProfit }
+  return { yuanCost, rate, qty, shipMethod: b.shipMethod, shipPerPiece, sellPrice, bahtPerPiece, bahtTotal, shipTotal, netProfit }
 }
 
 const fmt = (n: number) =>
@@ -111,13 +126,48 @@ export default function ChinaPackagingFields({ china, onChange }: {
         <span style={{ fontSize: 15 }}>🇨🇳</span>
         <span style={{ fontSize: 13.5, fontWeight: 600, color: '#2f3b45' }}>ข้อมูลต้นทุนผลิตแพคเกจจิ้งจีน</span>
       </div>
+
+      {/* Shipping method — sets the shipping cost per Q automatically */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={fieldLabel}>วิธีขนส่ง</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {SHIP_METHODS.map(m => {
+            const active = china.shipMethod === m.key
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => onChange('shipMethod', active ? '' : m.key)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 20,
+                  border: active ? '1.5px solid #5f7d99' : '1.5px solid #dde3e9',
+                  background: active ? '#e8eef4' : '#fff',
+                  color: active ? '#5f7d99' : '#7a8893',
+                  fontSize: 13, fontWeight: active ? 600 : 400,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{m.icon}</span>
+                {m.label}
+                <span style={{ fontSize: 12, color: active ? '#5f7d99' : '#9aa7b2' }}>· {fmt(m.rate)}฿/Q</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         <InputCell label="1. ต้นทุนเงินหยวน" unit="¥/ชิ้น" value={china.yuanCost} onChange={v => onChange('yuanCost', v)} />
         <InputCell label="2. เรทเงิน" unit="บาท/¥" value={china.rate} onChange={v => onChange('rate', v)} />
         <CalcCell label="3. ต้นทุนบาท/ชิ้น" unit="฿" value={d.bahtPerPiece} />
         <CalcCell label="4. ต้นทุนบาทรวม" unit="฿" value={d.bahtTotal} />
         <InputCell label="5. จำนวน Q" unit="ชิ้น" value={china.qty} onChange={v => onChange('qty', v)} />
-        <InputCell label="6. ราคาขนส่งต่อชิ้น" unit="฿" value={china.shipPerPiece} onChange={v => onChange('shipPerPiece', v)} />
+        {china.shipMethod ? (
+          <CalcCell label="6. ราคาขนส่งต่อ Q" unit="฿" value={d.shipPerPiece} />
+        ) : (
+          <InputCell label="6. ราคาขนส่งต่อชิ้น" unit="฿" value={china.shipPerPiece} onChange={v => onChange('shipPerPiece', v)} />
+        )}
         <CalcCell label="7. ราคารวมค่าขนส่ง" unit="฿" value={d.shipTotal} />
         <InputCell label="8. ราคาขาย" unit="฿" value={china.sellPrice} onChange={v => onChange('sellPrice', v)} />
         <CalcCell label="9. กำไรสุทธิ" unit="฿" value={d.netProfit} highlight />
