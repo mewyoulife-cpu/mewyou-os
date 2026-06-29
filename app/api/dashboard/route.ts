@@ -159,13 +159,19 @@ export async function GET(req: NextRequest) {
   const prevWaiting = prevProjects.filter(p => p.status === 'design').length
   const completed = rangeProjects.filter(p => p.status === 'completed').length
   const prevCompleted = prevProjects.filter(p => p.status === 'completed').length
-  const sales = rangeProjects.reduce((s, p) => s + p.value, 0)
-  const prevSales = prevProjects.reduce((s, p) => s + p.value, 0)
+
+  // Packaging-production projects are tracked separately (own profit cards) and
+  // are excluded from the overall sales total / chart.
+  const hasType = (t: string | null | undefined, key: string) => (t || '').includes(key)
+  const isPackaging = (t: string | null | undefined) => hasType(t, CHINA_TYPE) || hasType(t, THAI_TYPE)
+  const salesProjects = rangeProjects.filter(p => !isPackaging(p.type))
+
+  const sales = salesProjects.reduce((s, p) => s + p.value, 0)
+  const prevSales = prevProjects.filter(p => !isPackaging(p.type)).reduce((s, p) => s + p.value, 0)
   const outstanding = rangeInvoices.reduce((s, d) => s + documentTotal(d), 0)
   const prevOutstanding = prevInvoices.reduce((s, d) => s + documentTotal(d), 0)
 
   // ---- Packaging-production net profit (China = chinaData sheet; Thai = value - cost) ----
-  const hasType = (t: string | null | undefined, key: string) => (t || '').includes(key)
   const sumChinaProfit = (rows: { type?: string | null; chinaData?: string | null }[]) =>
     rows.filter(p => hasType(p.type, CHINA_TYPE)).reduce((s, p) => s + chinaNetProfit(p.chinaData), 0)
   const sumThaiProfit = (rows: { type?: string | null; value?: number; cost?: number }[]) =>
@@ -197,7 +203,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ---- Sales chart (adaptive to range) ----
-  const salesChart = buildSales(rangeProjects.map(p => ({ value: p.value, createdAt: p.createdAt })), fromD, toD)
+  const salesChart = buildSales(salesProjects.map(p => ({ value: p.value, createdAt: p.createdAt })), fromD, toD)
 
   // ---- Recent projects (in range) ----
   const recentProjects = rangeProjects.slice(0, 5).map(p => ({
