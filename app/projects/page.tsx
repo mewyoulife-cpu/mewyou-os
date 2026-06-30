@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { CHINA_TYPE, chinaNetProfit } from '@/lib/chinaPackaging'
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   lead:      { label: 'Lead',      bg: '#eef2f5', color: '#8fa7bc' },
@@ -114,6 +115,7 @@ type Project = {
   value: number
   dueDate: string | null
   image?: string | null
+  chinaData?: string | null
   customer: { name: string } | null
 }
 
@@ -346,7 +348,7 @@ export default function ProjectsPage() {
         ) : view === 'list' ? (
           /* LIST VIEW */
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 1fr 34px', gap: 8, fontSize: 12, color: '#9aa7b2', fontWeight: 500, padding: '0 4px 12px', borderBottom: '1px solid #f0f2f5' }}>
               <div>#</div>
               <div>รหัสโปรเจกต์</div>
               <div>ชื่อโปรเจกต์</div>
@@ -356,6 +358,7 @@ export default function ProjectsPage() {
               <div>ความคืบหน้า</div>
               <div>กำหนดส่ง</div>
               <div style={{ textAlign: 'right' }}>มูลค่า</div>
+              <div style={{ textAlign: 'right' }}>กำไรจีน</div>
               <div />
             </div>
             {filtered.length === 0 ? (
@@ -370,7 +373,7 @@ export default function ProjectsPage() {
                 <div
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 1fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '14px 4px', borderBottom: '1px solid #f4f6f8', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#fafbfc')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
@@ -390,6 +393,11 @@ export default function ProjectsPage() {
                   </div>
                   <div style={{ color: '#7a8893', fontSize: 13 }}>{p.dueDate ? p.dueDate.slice(0, 10) : '—'}</div>
                   <div style={{ textAlign: 'right', fontWeight: 600, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(p.value)}</div>
+                  <div style={{ textAlign: 'right', fontWeight: 600, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                    {p.type?.includes(CHINA_TYPE)
+                      ? (() => { const pr = chinaNetProfit(p.chinaData); return <span style={{ color: pr < 0 ? '#d9534f' : '#2f7a52' }}>{fmtValue(pr)}</span> })()
+                      : <span style={{ color: '#c4ccd4' }}>—</span>}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <span
                       onClick={e => { e.stopPropagation(); deleteProject(p.id, p.name) }}
@@ -404,9 +412,10 @@ export default function ProjectsPage() {
               )
             })}
             {filtered.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '16px 4px 2px', borderTop: '2px solid #eef1f4' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 0.9fr 1.4fr 1.1fr 1fr 1fr 1.2fr 0.85fr 0.85fr 1fr 34px', gap: 8, alignItems: 'center', fontSize: 13.5, padding: '16px 4px 2px', borderTop: '2px solid #eef1f4' }}>
                 <div style={{ gridColumn: '1 / 9', color: '#7a8893', fontWeight: 600 }}>รวมทั้งหมด ({filtered.length} โปรเจกต์)</div>
                 <div style={{ gridColumn: '9 / 10', textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#2f3b45', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(filtered.reduce((sum, p) => sum + (p.value || 0), 0))}</div>
+                <div style={{ gridColumn: '10 / 11', textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#2f7a52', fontFamily: "'IBM Plex Sans', sans-serif" }}>{fmtValue(filtered.reduce((sum, p) => sum + (p.type?.includes(CHINA_TYPE) ? chinaNetProfit(p.chinaData) : 0), 0))}</div>
               </div>
             )}
           </>
